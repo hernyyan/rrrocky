@@ -70,6 +70,17 @@ Return a JSON object with exactly two keys:
   "referenced_fields": ["Other Current Liabilities", "Short Term Loans"]
 }
 
+## Length Constraints
+
+The instruction MUST be concise:
+- Maximum 3 sentences per instruction
+- Maximum 200 words total
+- If the correction involves multiple related points, prioritize the most actionable classification guidance and drop background context
+- Do NOT pad with qualifiers, caveats, or restated accounting theory — every word must earn its place
+- If you cannot adequately capture the correction in 3 sentences, split it into the single most important classification rule and note in the output that additional nuance was dropped
+
+The referenced_fields array should contain only the directly relevant fields — typically 2-3 fields maximum.
+
 ## Important
 
 - Do NOT include dollar amounts from the specific correction in the instruction. The instruction should be generalizable across reporting periods — the amounts will change, but the company's labeling patterns persist.

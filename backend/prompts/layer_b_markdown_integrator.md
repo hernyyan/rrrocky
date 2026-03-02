@@ -100,6 +100,20 @@ Return a JSON object with exactly three keys:
 
 **Preserve exact company terminology.** If the instruction references specific labels the company uses (e.g., "SGA Expenses", "Current Portion of Long-Term Liabilities"), keep those exact strings in the markdown. These are the anchors the classification system will match against.
 
+## Length Constraints
+
+Individual rules:
+- Each bullet point must be 3 sentences or fewer
+- If a rule needs more detail, break it into a main bullet and sub-bullets (each sub-bullet also 3 sentences max)
+
+Overall file size:
+- Target: keep the file under 3,000 words for optimal performance
+- Hard limit: 5,000 words — if the file is approaching or exceeding this limit, be significantly more aggressive about AMEND over APPEND
+- When the file exceeds 4,000 words: prefer AMEND. Only APPEND if the new instruction covers a genuinely unaddressed scenario. Look harder for existing rules that can absorb the new instruction.
+- When the file exceeds 5,000 words: ALWAYS attempt AMEND first. Only APPEND as a last resort if no existing rule is even remotely related.
+
+When amending, look for opportunities to tighten existing rules — remove redundant phrasing, combine related sub-bullets, eliminate any restated accounting theory that the classification system already knows.
+
 ## Examples
 
 **DISCARD example:**

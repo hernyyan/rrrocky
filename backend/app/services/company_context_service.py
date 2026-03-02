@@ -9,6 +9,7 @@ Processes queued company_specific corrections:
 5. Marks correction as processed in DB
 """
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,7 +21,43 @@ from sqlalchemy import text
 from app.config import COMPANY_CONTEXT_DIR, DATA_DIR, LAYER_A_MODEL, LAYER_B_MODEL
 from app.services.claude_service import get_claude_service
 
+logger = logging.getLogger(__name__)
+
 CHANGELOG_PATH = DATA_DIR / "company_context_changelog.jsonl"
+ALERTS_PATH = DATA_DIR / "alerts.jsonl"
+
+
+def _check_markdown_word_count(
+    content: str,
+    company_id: int,
+    company_name: str,
+    markdown_filename: str,
+    timestamp: str,
+) -> None:
+    """Log warnings and append alerts if the markdown file is approaching or over the word limit."""
+    word_count = len(content.split())
+
+    if word_count > 5000:
+        logger.warning(
+            f"Company context file for {company_name} exceeds 5000 words ({word_count}). "
+            "Manual review recommended."
+        )
+        alert = {
+            "timestamp": timestamp,
+            "type": "markdown_overlength",
+            "company_id": company_id,
+            "company_name": company_name,
+            "markdown_filename": markdown_filename,
+            "word_count": word_count,
+            "message": "Company context file exceeds 5,000 word limit. Manual review and condensing recommended.",
+            "resolved": False,
+        }
+        with ALERTS_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(alert) + "\n")
+    elif word_count > 4000:
+        logger.info(
+            f"Company context file for {company_name} approaching limit ({word_count}/5000 words)."
+        )
 
 
 def _get_markdown_path(markdown_filename: str) -> Path:
@@ -218,6 +255,13 @@ def process_correction(correction_id: int, db: Session) -> dict:
     # 6. Apply result — overwrite markdown for AMEND or APPEND
     if action in ("AMEND", "APPEND") and updated_markdown:
         markdown_path.write_text(updated_markdown, encoding="utf-8")
+        _check_markdown_word_count(
+            updated_markdown,
+            company_id,
+            company_name,
+            markdown_path.name,
+            timestamp,
+        )
 
     # 7. Log to changelog
     section_affected = _extract_section_from_detail(detail)
