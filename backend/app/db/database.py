@@ -1,45 +1,47 @@
 """
-SQLite database connection and setup using SQLAlchemy.
+Database connection and setup using SQLAlchemy.
+Supports PostgreSQL (primary) and SQLite (fallback for local testing).
 """
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from app.config import DATABASE_URL
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},  # Required for SQLite
-)
+connect_args = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 CREATE_REVIEWS_TABLE = """
 CREATE TABLE IF NOT EXISTS reviews (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     session_id TEXT UNIQUE,
     company_name TEXT NOT NULL,
     reporting_period TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
     finalized_at TIMESTAMP,
     status TEXT DEFAULT 'in_progress',
-    layer1_data JSON,
-    layer2_data JSON,
-    final_output JSON,
-    corrections JSON
+    layer1_data JSONB,
+    layer2_data JSONB,
+    final_output JSONB,
+    corrections JSONB
 );
 """
 
 CREATE_COMPANIES_TABLE = """
 CREATE TABLE IF NOT EXISTS companies (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
     markdown_filename TEXT NOT NULL
 );
 """
 
 CREATE_COMPANY_SPECIFIC_CORRECTIONS_TABLE = """
 CREATE TABLE IF NOT EXISTS company_specific_corrections (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     company_id INTEGER NOT NULL,
     company_name TEXT NOT NULL,
     period TEXT NOT NULL,
@@ -51,7 +53,7 @@ CREATE TABLE IF NOT EXISTS company_specific_corrections (
     corrected_value REAL NOT NULL,
     analyst_reasoning TEXT,
     processed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
     FOREIGN KEY (company_id) REFERENCES companies(id)
 );
 """

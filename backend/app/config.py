@@ -27,7 +27,7 @@ PROMPTS_DIR: Path = BASE_DIR / os.getenv("PROMPTS_DIR", "prompts")
 TEMPLATES_DIR: Path = BASE_DIR / os.getenv("TEMPLATES_DIR", "templates")
 
 # Database
-DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'financial_platform.db'}")
+DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://henry:henry@localhost:5432/henry_db")
 
 # CORS origins
 CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
