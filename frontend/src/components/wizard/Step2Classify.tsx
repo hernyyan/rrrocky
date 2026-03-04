@@ -31,6 +31,15 @@ function detectSheetType(name: string): 'income_statement' | 'balance_sheet' {
 }
 
 
+/** Find the actual key in layer1Results that matches a sheet name.
+ *  Tries exact match first, then case-insensitive trimmed fallback. */
+function findLayer1Key(sheetName: string | undefined, layer1Keys: string[]): string | undefined {
+  if (!sheetName) return undefined
+  if (layer1Keys.includes(sheetName)) return sheetName
+  const needle = sheetName.toLowerCase().trim()
+  return layer1Keys.find((k) => k.toLowerCase().trim() === needle)
+}
+
 function formatSourceValue(value: number): string {
   const abs = Math.abs(value)
   const formatted = abs.toLocaleString('en-US', {
@@ -155,6 +164,8 @@ export default function Step2Classify() {
     return () => clearInterval(interval)
   }, [isClassifying])
   const hasBothResults = !!isLayer2 && !!bsLayer2
+  const hasAnyResults = !!isLayer2 || !!bsLayer2
+  const allSettled = isStatus !== 'loading' && bsStatus !== 'loading'
   const hasAnyError = isStatus === 'error' || bsStatus === 'error'
 
   useEffect(() => {
@@ -203,19 +214,22 @@ export default function Step2Classify() {
     setStatus(null)
 
     const { isSheet, bsSheet } = findIsBsSheets()
+    const layer1Keys = Object.keys(layer1Results)
+    const isKey = findLayer1Key(isSheet, layer1Keys)
+    const bsKey = findLayer1Key(bsSheet, layer1Keys)
     const newResults: Record<string, Layer2Result> = { ...layer2Results }
     const tasks: Promise<void>[] = []
 
-    console.log('[Step2] runClassification start — isStatus:', isStatus, 'bsStatus:', bsStatus, 'existing layer2Results keys:', Object.keys(layer2Results), 'isSheet:', isSheet, 'bsSheet:', bsSheet, 'layer1Results keys:', Object.keys(layer1Results))
+    console.log('[Step2] runClassification start — isStatus:', isStatus, 'bsStatus:', bsStatus, 'layer2Results keys:', Object.keys(layer2Results), 'isSheet:', isSheet, '→isKey:', isKey, 'bsSheet:', bsSheet, '→bsKey:', bsKey, 'layer1Keys:', layer1Keys)
 
-    if (isSheet && layer1Results[isSheet] && isStatus !== 'done') {
+    if (isKey && layer1Results[isKey] && isStatus !== 'done') {
       console.log('[Step2] IS: queuing task')
       setIsStatus('loading')
       tasks.push(
         runLayer2({
           session_id: sessionId,
           statement_type: 'income_statement',
-          layer1_data: layer1Results[isSheet].lineItems,
+          layer1_data: layer1Results[isKey].lineItems,
         })
           .then((result) => {
             console.log('[Step2] IS .then() fired — result truthy:', !!result, 'statementType:', result?.statementType)
@@ -229,21 +243,21 @@ export default function Step2Classify() {
             setIsError(err instanceof Error ? err.message : 'Income statement classification failed.')
           }),
       )
-    } else if (!isSheet || !layer1Results[isSheet]) {
-      console.log('[Step2] IS: no sheet/data, setting done immediately')
+    } else if (!isKey || !layer1Results[isKey]) {
+      console.log('[Step2] IS: no sheet/data, setting done immediately — isSheet:', isSheet, 'isKey:', isKey)
       setIsStatus('done')
     } else {
       console.log('[Step2] IS: skipped (isStatus already done)')
     }
 
-    if (bsSheet && layer1Results[bsSheet] && bsStatus !== 'done') {
-      console.log('[Step2] BS: queuing task — layer1 lineItems keys:', Object.keys(layer1Results[bsSheet].lineItems).length)
+    if (bsKey && layer1Results[bsKey] && bsStatus !== 'done') {
+      console.log('[Step2] BS: queuing task — layer1 lineItems keys:', Object.keys(layer1Results[bsKey].lineItems).length)
       setBsStatus('loading')
       tasks.push(
         runLayer2({
           session_id: sessionId,
           statement_type: 'balance_sheet',
-          layer1_data: layer1Results[bsSheet].lineItems,
+          layer1_data: layer1Results[bsKey].lineItems,
         })
           .then((result) => {
             console.log('[Step2] BS .then() fired — result truthy:', !!result, 'statementType:', result?.statementType)
@@ -259,8 +273,8 @@ export default function Step2Classify() {
             setBsError(err instanceof Error ? err.message : 'Balance sheet classification failed.')
           }),
       )
-    } else if (!bsSheet || !layer1Results[bsSheet]) {
-      console.log('[Step2] BS: no sheet/data, setting done immediately')
+    } else if (!bsKey || !layer1Results[bsKey]) {
+      console.log('[Step2] BS: no sheet/data, setting done immediately — bsSheet:', bsSheet, 'bsKey:', bsKey)
       setBsStatus('done')
     } else {
       console.log('[Step2] BS: skipped (bsStatus already done)')
@@ -270,14 +284,11 @@ export default function Step2Classify() {
     await Promise.allSettled(tasks)
     console.log('[Step2] all tasks settled — newResults keys:', Object.keys(newResults), 'layer2Results keys (closure):', Object.keys(layer2Results))
 
-    const newLen = Object.keys(newResults).length
-    const oldLen = Object.keys(layer2Results).length
-    if (newLen > oldLen) {
+    if (Object.keys(newResults).length > 0) {
       console.log('[Step2] calling setLayer2Results with keys:', Object.keys(newResults))
       setLayer2Results(newResults)
-      console.log('[Step2] setLayer2Results called')
     } else {
-      console.warn('[Step2] setLayer2Results NOT called — newLen:', newLen, 'oldLen:', oldLen, 'newResults:', newResults)
+      console.warn('[Step2] no results to persist — both tasks failed or skipped with no prior data')
     }
     classifyingRef.current = false
     console.log('[Step2] runClassification complete')
@@ -309,11 +320,14 @@ export default function Step2Classify() {
   // Build source rows in IS-first order so they align with the template side
   const isSheetName = sheetNames.find((s) => detectSheetType(s) === 'income_statement')
   const bsSheetName = sheetNames.find((s) => s !== isSheetName)
-  const sourceIsRows = isSheetName && layer1Results[isSheetName]
-    ? buildSourceRows({ [isSheetName]: layer1Results[isSheetName] })
+  const l1Keys = Object.keys(layer1Results)
+  const isL1Key = findLayer1Key(isSheetName, l1Keys)
+  const bsL1Key = findLayer1Key(bsSheetName, l1Keys)
+  const sourceIsRows = isL1Key
+    ? buildSourceRows({ [isL1Key]: layer1Results[isL1Key] })
     : []
-  const sourceBsRows = bsSheetName && layer1Results[bsSheetName]
-    ? buildSourceRows({ [bsSheetName]: layer1Results[bsSheetName] })
+  const sourceBsRows = bsL1Key
+    ? buildSourceRows({ [bsL1Key]: layer1Results[bsL1Key] })
     : []
 
   const existingCorrection = selectedCell
@@ -333,7 +347,7 @@ export default function Step2Classify() {
     if (leftIsRef.current) observer.observe(leftIsRef.current)
     if (rightIsRef.current) observer.observe(rightIsRef.current)
     return () => observer.disconnect()
-  }, [hasBothResults])
+  }, [hasAnyResults])
 
   const allValidation = { ...(isLayer2?.validation ?? {}), ...(bsLayer2?.validation ?? {}) }
   const passCount = Object.values(allValidation).filter((v) => v.status === 'PASS').length
@@ -405,8 +419,8 @@ export default function Step2Classify() {
     approveStep2()
   }
 
-  // Full-page loading view while classification is running
-  if (isClassifying && !hasBothResults) {
+  // Full-page loading view while classification is running and no results available yet
+  if (isClassifying && !hasAnyResults) {
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="bg-white border-b border-gray-200 px-4 py-2.5 flex-shrink-0">
@@ -488,7 +502,7 @@ export default function Step2Classify() {
           </div>
         )}
 
-        {hasBothResults && !showBackConfirm && (
+        {hasAnyResults && !isClassifying && !showBackConfirm && (
           <div className="flex items-center gap-3 text-xs">
             {passCount > 0 && <span className="text-green-600 font-medium">{passCount} passed</span>}
             {failCount > 0 && <span className="text-red-600 font-medium">{failCount} failed</span>}
@@ -511,7 +525,7 @@ export default function Step2Classify() {
           )}
           <button
             onClick={handleApproveStep2}
-            disabled={!hasBothResults || approvingStep2}
+            disabled={isClassifying || !hasAnyResults || approvingStep2}
             className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-1.5 rounded transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {approvingStep2 ? <LoadingSpinner size="sm" /> : '✓'}{' '}
@@ -559,12 +573,17 @@ export default function Step2Classify() {
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
               Template
             </p>
-            {hasBothResults && (
+            {hasAnyResults && !isClassifying && (
               <p className="text-[10px] text-gray-400">Click any row to inspect / correct</p>
             )}
           </div>
 
-          {hasAnyError && !hasBothResults ? (
+          {/* Nothing loaded yet: show full loading or all-failed error */}
+          {!hasAnyResults && !allSettled ? (
+            <div className="flex items-start justify-center pt-12">
+              <LoadingSpinner message="Classifying via Claude..." />
+            </div>
+          ) : !hasAnyResults && hasAnyError ? (
             <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
               <p className="text-sm font-medium text-red-600">Classification failed</p>
               {isError && <p className="text-xs text-red-500">Income Statement: {isError}</p>}
@@ -576,17 +595,26 @@ export default function Step2Classify() {
                 Retry Classification
               </button>
             </div>
-          ) : !hasBothResults ? (
-            <div className="flex items-start justify-center pt-12">
-              <LoadingSpinner message="Classifying via Claude..." />
-            </div>
           ) : (
+            /* At least one result ready (or all settled) — render template; inline loading/error per statement */
             <>
               <div ref={rightIsRef}>
-                <DataTable rows={isTemplateRows} noScroll onCellClick={setSelectedCell} selectedCell={selectedCell} />
+                {isStatus === 'loading' ? (
+                  <div className="flex items-center justify-center py-8">
+                    <LoadingSpinner size="sm" message="Classifying Income Statement..." />
+                  </div>
+                ) : (
+                  <DataTable rows={isTemplateRows} noScroll onCellClick={setSelectedCell} selectedCell={selectedCell} />
+                )}
               </div>
               <div style={{ height: rightSpacer }} />
-              <DataTable rows={bsTemplateRows} noScroll onCellClick={setSelectedCell} selectedCell={selectedCell} />
+              {bsStatus === 'loading' ? (
+                <div className="flex items-center justify-center py-8">
+                  <LoadingSpinner size="sm" message="Classifying Balance Sheet..." />
+                </div>
+              ) : (
+                <DataTable rows={bsTemplateRows} noScroll onCellClick={setSelectedCell} selectedCell={selectedCell} />
+              )}
             </>
           )}
         </div>
