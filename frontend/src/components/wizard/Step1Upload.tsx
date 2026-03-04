@@ -67,6 +67,8 @@ export default function Step1Upload() {
     setSheetNames,
     setWorkbookUrl,
     setLayer1Results,
+    sheetStatementTypes,
+    setSheetStatementTypes,
     setActiveSheetTab,
     approveStep1,
     loadMockStep2,
@@ -239,6 +241,7 @@ export default function Step1Upload() {
     setSheetNames([])
     setWorkbookUrl(null)
     setLayer1Results({})
+    setSheetStatementTypes({})
     setTabStates({})
     setStatus(null)
     setTimeout(() => fileInputRef.current?.click(), 0)
@@ -265,6 +268,7 @@ export default function Step1Upload() {
     try {
       const result = await runLayer1(sessionId, tabName, tabState.sheetType, reportingPeriod)
       setLayer1Results({ ...layer1Results, [tabName]: result })
+      setSheetStatementTypes({ ...sheetStatementTypes, [tabName]: tabState.sheetType })
       setTabStates((prev) => ({
         ...prev,
         [tabName]: { ...prev[tabName], status: 'done' },

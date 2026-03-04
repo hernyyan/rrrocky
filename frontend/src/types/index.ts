@@ -12,6 +12,7 @@ export interface WizardState {
   sheetNames: string[]
   workbookUrl: string | null
   layer1Results: Record<string, Layer1Result>
+  sheetStatementTypes: Record<string, 'income_statement' | 'balance_sheet'>
   step1Approved: boolean
 
   // Step 2

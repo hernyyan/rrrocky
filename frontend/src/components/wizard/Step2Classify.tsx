@@ -12,34 +12,6 @@ import type { Correction, Layer2Result, TemplateResponse, TemplateSection, Corre
 type RunStatus = 'idle' | 'loading' | 'done' | 'error'
 type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
 
-function detectSheetType(name: string): 'income_statement' | 'balance_sheet' {
-  const lower = name.toLowerCase()
-  if (
-    lower.includes('income') ||
-    lower.includes('p&l') ||
-    lower.includes('p_l') ||
-    lower.includes('profit') ||
-    lower.includes('pnl') ||
-    lower.includes('revenue') ||
-    lower.includes('i/s') ||
-    /[_\- ]is$/i.test(name) ||   // e.g. FiveIron_IS, Company-IS, Statement IS
-    /^is$/i.test(name)            // sheet named exactly "IS"
-  ) {
-    return 'income_statement'
-  }
-  return 'balance_sheet'
-}
-
-
-/** Find the actual key in layer1Results that matches a sheet name.
- *  Tries exact match first, then case-insensitive trimmed fallback. */
-function findLayer1Key(sheetName: string | undefined, layer1Keys: string[]): string | undefined {
-  if (!sheetName) return undefined
-  if (layer1Keys.includes(sheetName)) return sheetName
-  const needle = sheetName.toLowerCase().trim()
-  return layer1Keys.find((k) => k.toLowerCase().trim() === needle)
-}
-
 function formatSourceValue(value: number): string {
   const abs = Math.abs(value)
   const formatted = abs.toLocaleString('en-US', {
@@ -119,8 +91,8 @@ export default function Step2Classify() {
     companyName,
     reportingPeriod,
     sessionId,
-    sheetNames,
     layer1Results,
+    sheetStatementTypes,
     layer2Results,
     corrections,
     selectedCell,
@@ -133,6 +105,10 @@ export default function Step2Classify() {
     setSelectedCell,
     setSidePanelOpen,
   } = useWizardState()
+
+  // Keys in layer1Results for each statement type — set by the user's explicit selection in Step 1
+  const isKey = Object.entries(sheetStatementTypes).find(([, t]) => t === 'income_statement')?.[0]
+  const bsKey = Object.entries(sheetStatementTypes).find(([, t]) => t === 'balance_sheet')?.[0]
 
   const [isStatus, setIsStatus] = useState<RunStatus>('idle')
   const [bsStatus, setBsStatus] = useState<RunStatus>('idle')
@@ -193,16 +169,6 @@ export default function Step2Classify() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function findIsBsSheets() {
-    const isSheet = sheetNames.find((s) => detectSheetType(s) === 'income_statement')
-    // Exclude the IS sheet when searching for BS; fall back to any remaining sheet
-    const bsSheet =
-      sheetNames.find((s) => s !== isSheet && detectSheetType(s) === 'balance_sheet') ??
-      sheetNames.find((s) => s !== isSheet)
-    console.log('[Step2] sheet detection →', { sheetNames, isSheet, bsSheet })
-    return { isSheet, bsSheet }
-  }
-
   async function runClassification() {
     if (classifyingRef.current) {
       console.warn('[Step2] runClassification: already running, skipping')
@@ -213,14 +179,11 @@ export default function Step2Classify() {
     setBsError(null)
     setStatus(null)
 
-    const { isSheet, bsSheet } = findIsBsSheets()
-    const layer1Keys = Object.keys(layer1Results)
-    const isKey = findLayer1Key(isSheet, layer1Keys)
-    const bsKey = findLayer1Key(bsSheet, layer1Keys)
+    // isKey/bsKey come from sheetStatementTypes — the user's explicit Step 1 designations
     const newResults: Record<string, Layer2Result> = { ...layer2Results }
     const tasks: Promise<void>[] = []
 
-    console.log('[Step2] runClassification start — isStatus:', isStatus, 'bsStatus:', bsStatus, 'layer2Results keys:', Object.keys(layer2Results), 'isSheet:', isSheet, '→isKey:', isKey, 'bsSheet:', bsSheet, '→bsKey:', bsKey, 'layer1Keys:', layer1Keys)
+    console.log('[Step2] runClassification start — isStatus:', isStatus, 'bsStatus:', bsStatus, 'layer2Results keys:', Object.keys(layer2Results), 'isKey:', isKey, 'bsKey:', bsKey, 'sheetStatementTypes:', sheetStatementTypes)
 
     if (isKey && layer1Results[isKey] && isStatus !== 'done') {
       console.log('[Step2] IS: queuing task')
@@ -244,7 +207,7 @@ export default function Step2Classify() {
           }),
       )
     } else if (!isKey || !layer1Results[isKey]) {
-      console.log('[Step2] IS: no sheet/data, setting done immediately — isSheet:', isSheet, 'isKey:', isKey)
+      console.log('[Step2] IS: no data for isKey:', isKey, '— setting done immediately')
       setIsStatus('done')
     } else {
       console.log('[Step2] IS: skipped (isStatus already done)')
@@ -274,7 +237,7 @@ export default function Step2Classify() {
           }),
       )
     } else if (!bsKey || !layer1Results[bsKey]) {
-      console.log('[Step2] BS: no sheet/data, setting done immediately — bsSheet:', bsSheet, 'bsKey:', bsKey)
+      console.log('[Step2] BS: no data for bsKey:', bsKey, '— setting done immediately')
       setBsStatus('done')
     } else {
       console.log('[Step2] BS: skipped (bsStatus already done)')
@@ -317,17 +280,12 @@ export default function Step2Classify() {
   const isTemplateRows = buildTemplateRows(isSections, 'Income Statement', isLayer2, corrections, selectedCell)
   const bsTemplateRows = buildTemplateRows(bsSections, 'Balance Sheet', bsLayer2, corrections, selectedCell)
 
-  // Build source rows in IS-first order so they align with the template side
-  const isSheetName = sheetNames.find((s) => detectSheetType(s) === 'income_statement')
-  const bsSheetName = sheetNames.find((s) => s !== isSheetName)
-  const l1Keys = Object.keys(layer1Results)
-  const isL1Key = findLayer1Key(isSheetName, l1Keys)
-  const bsL1Key = findLayer1Key(bsSheetName, l1Keys)
-  const sourceIsRows = isL1Key
-    ? buildSourceRows({ [isL1Key]: layer1Results[isL1Key] })
+  // Build source rows using the same keys as Step 1's designations (IS first, then BS)
+  const sourceIsRows = isKey && layer1Results[isKey]
+    ? buildSourceRows({ [isKey]: layer1Results[isKey] })
     : []
-  const sourceBsRows = bsL1Key
-    ? buildSourceRows({ [bsL1Key]: layer1Results[bsL1Key] })
+  const sourceBsRows = bsKey && layer1Results[bsKey]
+    ? buildSourceRows({ [bsKey]: layer1Results[bsKey] })
     : []
 
   const existingCorrection = selectedCell
