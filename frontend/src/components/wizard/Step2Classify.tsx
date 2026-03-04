@@ -92,7 +92,6 @@ export default function Step2Classify() {
     reportingPeriod,
     sessionId,
     layer1Results,
-    sheetStatementTypes,
     layer2Results,
     corrections,
     selectedCell,
@@ -105,10 +104,6 @@ export default function Step2Classify() {
     setSelectedCell,
     setSidePanelOpen,
   } = useWizardState()
-
-  // Keys in layer1Results for each statement type — set by the user's explicit selection in Step 1
-  const isKey = Object.entries(sheetStatementTypes).find(([, t]) => t === 'income_statement')?.[0]
-  const bsKey = Object.entries(sheetStatementTypes).find(([, t]) => t === 'balance_sheet')?.[0]
 
   const [isStatus, setIsStatus] = useState<RunStatus>('idle')
   const [bsStatus, setBsStatus] = useState<RunStatus>('idle')
@@ -183,16 +178,16 @@ export default function Step2Classify() {
     const newResults: Record<string, Layer2Result> = { ...layer2Results }
     const tasks: Promise<void>[] = []
 
-    console.log('[Step2] runClassification start — isStatus:', isStatus, 'bsStatus:', bsStatus, 'layer2Results keys:', Object.keys(layer2Results), 'isKey:', isKey, 'bsKey:', bsKey, 'sheetStatementTypes:', sheetStatementTypes)
+    console.log('[Step2] runClassification start — isStatus:', isStatus, 'bsStatus:', bsStatus, 'layer2Results keys:', Object.keys(layer2Results))
 
-    if (isKey && layer1Results[isKey] && isStatus !== 'done') {
+    if (layer1Results['income_statement'] && isStatus !== 'done') {
       console.log('[Step2] IS: queuing task')
       setIsStatus('loading')
       tasks.push(
         runLayer2({
           session_id: sessionId,
           statement_type: 'income_statement',
-          layer1_data: layer1Results[isKey].lineItems,
+          layer1_data: layer1Results['income_statement'].lineItems,
         })
           .then((result) => {
             console.log('[Step2] IS .then() fired — result truthy:', !!result, 'statementType:', result?.statementType)
@@ -206,21 +201,21 @@ export default function Step2Classify() {
             setIsError(err instanceof Error ? err.message : 'Income statement classification failed.')
           }),
       )
-    } else if (!isKey || !layer1Results[isKey]) {
-      console.log('[Step2] IS: no data for isKey:', isKey, '— setting done immediately')
+    } else if (!layer1Results['income_statement']) {
+      console.log('[Step2] IS: no layer1 data — setting done immediately')
       setIsStatus('done')
     } else {
       console.log('[Step2] IS: skipped (isStatus already done)')
     }
 
-    if (bsKey && layer1Results[bsKey] && bsStatus !== 'done') {
-      console.log('[Step2] BS: queuing task — layer1 lineItems keys:', Object.keys(layer1Results[bsKey].lineItems).length)
+    if (layer1Results['balance_sheet'] && bsStatus !== 'done') {
+      console.log('[Step2] BS: queuing task — layer1 lineItems keys:', Object.keys(layer1Results['balance_sheet'].lineItems).length)
       setBsStatus('loading')
       tasks.push(
         runLayer2({
           session_id: sessionId,
           statement_type: 'balance_sheet',
-          layer1_data: layer1Results[bsKey].lineItems,
+          layer1_data: layer1Results['balance_sheet'].lineItems,
         })
           .then((result) => {
             console.log('[Step2] BS .then() fired — result truthy:', !!result, 'statementType:', result?.statementType)
@@ -236,8 +231,8 @@ export default function Step2Classify() {
             setBsError(err instanceof Error ? err.message : 'Balance sheet classification failed.')
           }),
       )
-    } else if (!bsKey || !layer1Results[bsKey]) {
-      console.log('[Step2] BS: no data for bsKey:', bsKey, '— setting done immediately')
+    } else if (!layer1Results['balance_sheet']) {
+      console.log('[Step2] BS: no layer1 data — setting done immediately')
       setBsStatus('done')
     } else {
       console.log('[Step2] BS: skipped (bsStatus already done)')
@@ -280,13 +275,10 @@ export default function Step2Classify() {
   const isTemplateRows = buildTemplateRows(isSections, 'Income Statement', isLayer2, corrections, selectedCell)
   const bsTemplateRows = buildTemplateRows(bsSections, 'Balance Sheet', bsLayer2, corrections, selectedCell)
 
-  // Build source rows using the same keys as Step 1's designations (IS first, then BS)
-  const sourceIsRows = isKey && layer1Results[isKey]
-    ? buildSourceRows({ [isKey]: layer1Results[isKey] })
-    : []
-  const sourceBsRows = bsKey && layer1Results[bsKey]
-    ? buildSourceRows({ [bsKey]: layer1Results[bsKey] })
-    : []
+  const isData = layer1Results['income_statement']
+  const bsData = layer1Results['balance_sheet']
+  const sourceIsRows = isData ? buildSourceRows({ [isData.sourceSheet]: isData }) : []
+  const sourceBsRows = bsData ? buildSourceRows({ [bsData.sourceSheet]: bsData }) : []
 
   const existingCorrection = selectedCell
     ? corrections.find((c) => c.fieldName === selectedCell)

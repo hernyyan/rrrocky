@@ -12,7 +12,6 @@ export interface WizardState {
   sheetNames: string[]
   workbookUrl: string | null
   layer1Results: Record<string, Layer1Result>
-  sheetStatementTypes: Record<string, 'income_statement' | 'balance_sheet'>
   step1Approved: boolean
 
   // Step 2
@@ -31,6 +30,7 @@ export interface Layer1Result {
   lineItems: Record<string, number>
   sourceScaling: string
   columnIdentified: string
+  sourceSheet: string
 }
 
 export interface Layer2Result {
@@ -72,7 +72,10 @@ export interface Layer1Request {
   reportingPeriod: string
 }
 
-export interface Layer1Response extends Layer1Result {
+export interface Layer1Response {
+  lineItems: Record<string, number>
+  sourceScaling: string
+  columnIdentified: string
   sheetName: string
 }
 

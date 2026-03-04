@@ -14,7 +14,6 @@ interface WizardContextType extends WizardState {
   setSheetNames: (names: string[]) => void
   setWorkbookUrl: (url: string | null) => void
   setLayer1Results: (results: Record<string, Layer1Result>) => void
-  setSheetStatementTypes: (types: Record<string, 'income_statement' | 'balance_sheet'>) => void
   approveStep1: () => void
   setLayer2Results: (results: Record<string, Layer2Result>) => void
   addCorrection: (correction: Correction) => void
@@ -38,7 +37,6 @@ const defaultState: WizardState = {
   sheetNames: [],
   workbookUrl: null,
   layer1Results: {},
-  sheetStatementTypes: {},
   step1Approved: false,
   layer2Results: {},
   corrections: [],
@@ -90,10 +88,6 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, layer1Results: results }))
   }
 
-  function setSheetStatementTypes(types: Record<string, 'income_statement' | 'balance_sheet'>) {
-    setState((s) => ({ ...s, sheetStatementTypes: types }))
-  }
-
   function approveStep1() {
     setState((s) => ({
       ...s,
@@ -141,7 +135,6 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       currentStep: 1,
       step1Approved: false,
       layer1Results: {},
-      sheetStatementTypes: {},
       layer2Results: {},
       corrections: [],
       step2Approved: false,
@@ -193,10 +186,6 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       sheetNames: ['Income Statement', 'Balance Sheet'],
       workbookUrl: null,
       layer1Results: {},
-      sheetStatementTypes: {
-        'Income Statement': 'income_statement',
-        'Balance Sheet': 'balance_sheet',
-      },
       step1Approved: true,
       layer2Results: {
         income_statement: MOCK_LAYER2_INCOME_STATEMENT,
@@ -221,7 +210,6 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     setSheetNames,
     setWorkbookUrl,
     setLayer1Results,
-    setSheetStatementTypes,
     approveStep1,
     setLayer2Results,
     addCorrection,

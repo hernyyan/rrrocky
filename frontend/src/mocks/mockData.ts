@@ -29,6 +29,7 @@ export const MOCK_LAYER1_INCOME_STATEMENT: Layer1Result = {
   },
   sourceScaling: 'actual_dollars',
   columnIdentified: '03/31/2024',
+  sourceSheet: 'Income Statement',
 }
 
 // Mock Layer 1 output - Balance Sheet
@@ -64,6 +65,7 @@ export const MOCK_LAYER1_BALANCE_SHEET: Layer1Result = {
   },
   sourceScaling: 'actual_dollars',
   columnIdentified: '03/31/2024',
+  sourceSheet: 'Balance Sheet',
 }
 
 // Mock Layer 2 output - Income Statement

@@ -67,8 +67,6 @@ export default function Step1Upload() {
     setSheetNames,
     setWorkbookUrl,
     setLayer1Results,
-    sheetStatementTypes,
-    setSheetStatementTypes,
     setActiveSheetTab,
     approveStep1,
     loadMockStep2,
@@ -179,7 +177,7 @@ export default function Step1Upload() {
   }
 
   const activeTabState = tabStates[activeTab]
-  const activeLayer1 = layer1Results[activeTab]
+  const activeLayer1 = layer1Results[tabStates[activeTab]?.sheetType]
 
   // Approve requires at least one income statement AND one balance sheet extracted
   const extractedIS = sheetNames.some(
@@ -241,7 +239,6 @@ export default function Step1Upload() {
     setSheetNames([])
     setWorkbookUrl(null)
     setLayer1Results({})
-    setSheetStatementTypes({})
     setTabStates({})
     setStatus(null)
     setTimeout(() => fileInputRef.current?.click(), 0)
@@ -267,8 +264,15 @@ export default function Step1Upload() {
 
     try {
       const result = await runLayer1(sessionId, tabName, tabState.sheetType, reportingPeriod)
-      setLayer1Results({ ...layer1Results, [tabName]: result })
-      setSheetStatementTypes({ ...sheetStatementTypes, [tabName]: tabState.sheetType })
+      setLayer1Results({
+        ...layer1Results,
+        [tabState.sheetType]: {
+          lineItems: result.lineItems,
+          sourceScaling: result.sourceScaling,
+          columnIdentified: result.columnIdentified,
+          sourceSheet: tabName,
+        },
+      })
       setTabStates((prev) => ({
         ...prev,
         [tabName]: { ...prev[tabName], status: 'done' },
