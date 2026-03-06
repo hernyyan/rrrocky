@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useWizardState } from '../../hooks/useWizardState'
 import DataTable from '../shared/DataTable'
 import SidePanel from '../shared/SidePanel'
@@ -123,10 +123,6 @@ export default function Step2Classify() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [approvingStep2, setApprovingStep2] = useState(false)
   const classifyingRef = useRef(false)
-  const leftIsRef = useRef<HTMLDivElement>(null)
-  const rightIsRef = useRef<HTMLDivElement>(null)
-  const [leftSpacer, setLeftSpacer] = useState(0)
-  const [rightSpacer, setRightSpacer] = useState(0)
 
   const isLayer2 = layer2Results['income_statement']
   const bsLayer2 = layer2Results['balance_sheet']
@@ -292,21 +288,6 @@ export default function Step2Classify() {
     ? corrections.find((c) => c.fieldName === selectedCell)
     : undefined
 
-  // Measure IS section heights and add a spacer to the shorter side so BS tops align
-  useLayoutEffect(() => {
-    function sync() {
-      const lh = leftIsRef.current?.offsetHeight ?? 0
-      const rh = rightIsRef.current?.offsetHeight ?? 0
-      setLeftSpacer(Math.max(0, rh - lh))
-      setRightSpacer(Math.max(0, lh - rh))
-    }
-    sync()
-    const observer = new ResizeObserver(sync)
-    if (leftIsRef.current) observer.observe(leftIsRef.current)
-    if (rightIsRef.current) observer.observe(rightIsRef.current)
-    return () => observer.disconnect()
-  }, [hasAnyResults])
-
   const allValidation = { ...(isLayer2?.validation ?? {}), ...(bsLayer2?.validation ?? {}) }
   const passCount = Object.values(allValidation).filter((v) => v.status === 'PASS').length
   const failCount = Object.values(allValidation).filter((v) => v.status === 'FAIL').length
@@ -390,7 +371,7 @@ export default function Step2Classify() {
             Back to Extraction
           </button>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="flex-1 flex flex-col items-center justify-center pt-20">
           <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
           <h2 className="text-[16px] mb-1" style={{ fontWeight: 600 }}>Classifying Financial Data</h2>
           <p className="text-[13px] text-muted-foreground mb-6">{elapsedSeconds}s elapsed</p>
@@ -459,6 +440,8 @@ export default function Step2Classify() {
           </div>
         )}
 
+        <div className="flex-1" />
+
         {hasAnyResults && !isClassifying && !showBackConfirm && (
           <div className="flex items-center gap-3 text-[12px]">
             {passCount > 0 && (
@@ -481,8 +464,6 @@ export default function Step2Classify() {
             )}
           </div>
         )}
-
-        <div className="flex-1" />
 
         {hasAnyError && (
           <button
@@ -515,35 +496,34 @@ export default function Step2Classify() {
       )}
 
       {/* Main layout — horizontal flex with inline side panel */}
-      <div className="flex flex-1 min-h-0 overflow-auto divide-x divide-border">
+      <div className="flex flex-1 min-h-0 overflow-hidden divide-x divide-border">
         {/* Left: Layer 1 source data */}
         <div
-          className="flex flex-col flex-shrink-0 transition-all duration-200"
+          className="flex flex-col flex-shrink-0 min-h-0 overflow-hidden transition-all duration-200"
           style={{ width: sidePanelOpen ? '28%' : '38%' }}
         >
-          <div className="px-4 py-2 border-b border-border bg-gray-50 sticky top-0 z-10">
+          <div className="px-4 py-2 border-b border-border bg-gray-50 shrink-0">
             <p className="text-[12px] text-muted-foreground" style={{ fontWeight: 500 }}>
               Source Data (Extracted)
             </p>
           </div>
-          {sourceIsRows.length === 0 && sourceBsRows.length === 0 ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground text-[13px]">
-              No source data available
-            </div>
-          ) : (
-            <>
-              <div ref={leftIsRef}>
-                <DataTable rows={sourceIsRows} noScroll stmtHeaderStyle="gray" />
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {sourceIsRows.length === 0 && sourceBsRows.length === 0 ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground text-[13px]">
+                No source data available
               </div>
-              <div style={{ height: leftSpacer }} />
-              <DataTable rows={sourceBsRows} noScroll stmtHeaderStyle="gray" />
-            </>
-          )}
+            ) : (
+              <>
+                <DataTable rows={sourceIsRows} noScroll stmtHeaderStyle="gray" />
+                <DataTable rows={sourceBsRows} noScroll stmtHeaderStyle="gray" />
+              </>
+            )}
+          </div>
         </div>
 
         {/* Right: Classified template */}
-        <div className="flex flex-col flex-1 min-w-0">
-          <div className="px-4 py-2 border-b border-border bg-gray-50 sticky top-0 z-10 flex items-center justify-between">
+        <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+          <div className="px-4 py-2 border-b border-border bg-gray-50 shrink-0 flex items-center justify-between">
             <p className="text-[12px] text-muted-foreground" style={{ fontWeight: 500 }}>
               Classified Template
             </p>
@@ -552,25 +532,25 @@ export default function Step2Classify() {
             )}
           </div>
 
-          {!hasAnyResults && !allSettled ? (
-            <div className="flex items-start justify-center pt-12">
-              <LoadingSpinner message="Classifying via Claude..." />
-            </div>
-          ) : !hasAnyResults && hasAnyError ? (
-            <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-              <p className="text-[13px] text-red-600" style={{ fontWeight: 500 }}>Classification failed</p>
-              {isError && <p className="text-[12px] text-red-500">Income Statement: {isError}</p>}
-              {bsError && <p className="text-[12px] text-red-500">Balance Sheet: {bsError}</p>}
-              <button
-                onClick={handleRetry}
-                className="mt-2 text-[13px] bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-              >
-                Retry Classification
-              </button>
-            </div>
-          ) : (
-            <>
-              <div ref={rightIsRef}>
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {!hasAnyResults && !allSettled ? (
+              <div className="flex items-start justify-center pt-12">
+                <LoadingSpinner message="Classifying via Claude..." />
+              </div>
+            ) : !hasAnyResults && hasAnyError ? (
+              <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+                <p className="text-[13px] text-red-600" style={{ fontWeight: 500 }}>Classification failed</p>
+                {isError && <p className="text-[12px] text-red-500">Income Statement: {isError}</p>}
+                {bsError && <p className="text-[12px] text-red-500">Balance Sheet: {bsError}</p>}
+                <button
+                  onClick={handleRetry}
+                  className="mt-2 text-[13px] bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  Retry Classification
+                </button>
+              </div>
+            ) : (
+              <>
                 {isStatus === 'loading' ? (
                   <div className="flex items-center justify-center py-8">
                     <LoadingSpinner size="sm" message="Classifying Income Statement..." />
@@ -583,22 +563,21 @@ export default function Step2Classify() {
                     selectedCell={selectedCell}
                   />
                 )}
-              </div>
-              <div style={{ height: rightSpacer }} />
-              {bsStatus === 'loading' ? (
-                <div className="flex items-center justify-center py-8">
-                  <LoadingSpinner size="sm" message="Classifying Balance Sheet..." />
-                </div>
-              ) : (
-                <DataTable
-                  rows={bsTemplateRows}
-                  noScroll
-                  onCellClick={setSelectedCell}
-                  selectedCell={selectedCell}
-                />
-              )}
-            </>
-          )}
+                {bsStatus === 'loading' ? (
+                  <div className="flex items-center justify-center py-8">
+                    <LoadingSpinner size="sm" message="Classifying Balance Sheet..." />
+                  </div>
+                ) : (
+                  <DataTable
+                    rows={bsTemplateRows}
+                    noScroll
+                    onCellClick={setSelectedCell}
+                    selectedCell={selectedCell}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Inline side panel */}

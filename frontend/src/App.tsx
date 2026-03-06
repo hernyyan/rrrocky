@@ -5,7 +5,7 @@ import Header from './components/layout/Header'
 function App() {
   return (
     <WizardProvider>
-      <div className="min-h-screen flex flex-col bg-white">
+      <div className="h-screen flex flex-col bg-white overflow-hidden">
         <Header />
         <main className="flex-1 flex flex-col overflow-hidden">
           <WizardShell />

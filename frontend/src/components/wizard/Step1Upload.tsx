@@ -446,7 +446,7 @@ export default function Step1Upload() {
             extractedTabs={extractedSheetNames}
           />
           {!hasUpload ? (
-            <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground pt-20">
               <FileSpreadsheet className="w-12 h-12 mb-3 opacity-30" />
               <p className="text-[13px]">Upload an Excel file to preview</p>
             </div>
