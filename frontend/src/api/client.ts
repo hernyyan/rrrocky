@@ -11,6 +11,7 @@ import type {
   Company,
   CorrectionProcessRequest,
   CorrectionProcessResponse,
+  CompanyContextStatus,
 } from '../types'
 
 export const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -81,6 +82,8 @@ export async function runLayer2(request: Layer2Request): Promise<Layer2Result> {
       session_id: request.session_id ?? undefined,
       statement_type: request.statement_type,
       layer1_data: request.layer1_data,
+      company_id: request.company_id ?? undefined,
+      use_company_context: request.use_company_context ?? false,
     }),
   })
   console.log(`[runLayer2] ${request.statement_type} HTTP response: status=${res.status} ok=${res.ok} content-length=${res.headers.get('content-length')}`)
@@ -161,4 +164,10 @@ export async function processCorrections(
     body: JSON.stringify(payload),
   })
   return handleResponse<CorrectionProcessResponse>(res)
+}
+
+// GET /companies/{id}/context-status
+export async function getCompanyContextStatus(companyId: number): Promise<CompanyContextStatus> {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/context-status`)
+  return handleResponse<CompanyContextStatus>(res)
 }

@@ -43,6 +43,8 @@ class Layer2Request(BaseModel):
     session_id: Optional[str] = None
     statement_type: str       # 'income_statement' | 'balance_sheet'
     layer1_data: Dict[str, float]  # Just the lineItems dict from Layer 1
+    company_id: Optional[int] = None
+    use_company_context: Optional[bool] = False
 
 
 class Layer2Response(BaseModel):

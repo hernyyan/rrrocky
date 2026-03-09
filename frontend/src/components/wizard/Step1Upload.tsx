@@ -3,8 +3,8 @@ import { useWizardState } from '../../hooks/useWizardState'
 import TabSelector from '../shared/TabSelector'
 import ExcelViewer from '../shared/ExcelViewer'
 import StatusBanner from '../shared/StatusBanner'
-import { uploadFile, runLayer1, getCompanies, createCompany } from '../../api/client'
-import type { Company } from '../../types'
+import { uploadFile, runLayer1, getCompanies, createCompany, getCompanyContextStatus } from '../../api/client'
+import type { Company, CompanyContextStatus } from '../../types'
 import {
   Upload,
   Search,
@@ -59,6 +59,7 @@ function formatLineItemValue(value: number): string {
 export default function Step1Upload() {
   const {
     companyName,
+    companyId,
     reportingPeriod,
     sessionId,
     uploadedFile,
@@ -66,6 +67,7 @@ export default function Step1Upload() {
     workbookUrl,
     layer1Results,
     activeSheetTab,
+    useCompanyContext,
     setCompanyName,
     setCompanyId,
     setReportingPeriod,
@@ -75,6 +77,7 @@ export default function Step1Upload() {
     setWorkbookUrl,
     setLayer1Results,
     setActiveSheetTab,
+    setUseCompanyContext,
     approveStep1,
   } = useWizardState()
 
@@ -85,6 +88,8 @@ export default function Step1Upload() {
   const [uploading, setUploading] = useState(false)
   const [status, setStatus] = useState<StatusMessage>(null)
   const [tabStates, setTabStates] = useState<Record<string, TabState>>({})
+  const [contextStatus, setContextStatus] = useState<CompanyContextStatus | null>(null)
+  const [contextLoading, setContextLoading] = useState(false)
 
   // Company combobox state
   const [companies, setCompanies] = useState<Company[]>([])
@@ -153,6 +158,14 @@ export default function Step1Upload() {
     setCompanyId(company.id)
     setComboSearch(company.name)
     setComboOpen(false)
+    // Fetch context status if file already uploaded
+    if (hasUpload) {
+      setContextLoading(true)
+      getCompanyContextStatus(company.id)
+        .then(setContextStatus)
+        .catch(() => setContextStatus(null))
+        .finally(() => setContextLoading(false))
+    }
   }
 
   async function handleCreateCompany() {
@@ -168,6 +181,13 @@ export default function Step1Upload() {
       setCompanyId(newCompany.id)
       setComboSearch(newCompany.name)
       setComboOpen(false)
+      setContextStatus({
+        company_id: newCompany.id,
+        company_name: newCompany.name,
+        has_rules: false,
+        rule_count: 0,
+        word_count: 0,
+      })
     } catch (err) {
       setStatus({
         type: 'error',
@@ -225,6 +245,15 @@ export default function Step1Upload() {
         type: 'success',
         message: `Uploaded "${file.name}" — ${response.sheetNames.length} sheet(s) found.`,
       })
+
+      // Fetch company context status after successful upload
+      if (companyId) {
+        setContextLoading(true)
+        getCompanyContextStatus(companyId)
+          .then(setContextStatus)
+          .catch(() => setContextStatus(null))
+          .finally(() => setContextLoading(false))
+      }
     } catch (err) {
       setStatus({
         type: 'error',
@@ -403,6 +432,37 @@ export default function Step1Upload() {
             <FileSpreadsheet className="w-3.5 h-3.5" />
             {uploadedFile?.name ?? 'Uploaded file'}
           </button>
+        )}
+
+        {hasUpload && (
+          <div className="flex items-center gap-2.5 px-2.5 py-1 rounded-lg border border-border bg-white">
+            <button
+              onClick={() => setUseCompanyContext(!useCompanyContext)}
+              className={`relative w-8 h-[18px] rounded-full transition-colors ${
+                useCompanyContext ? 'bg-emerald-500' : 'bg-gray-300'
+              }`}
+            >
+              <div
+                className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-transform ${
+                  useCompanyContext ? 'left-[17px]' : 'left-[2px]'
+                }`}
+              />
+            </button>
+            <div className="text-[12px]">
+              <span style={{ fontWeight: 500 }}>Company Context</span>
+              {contextLoading ? (
+                <span className="text-muted-foreground ml-1.5">checking...</span>
+              ) : contextStatus ? (
+                contextStatus.has_rules ? (
+                  <span className="text-emerald-600 ml-1.5" style={{ fontWeight: 500 }}>
+                    {contextStatus.rule_count} rule{contextStatus.rule_count !== 1 ? 's' : ''} · {contextStatus.word_count} words
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground ml-1.5">No rules yet</span>
+                )
+              ) : null}
+            </div>
+          </div>
         )}
 
         <div className="flex-1" />

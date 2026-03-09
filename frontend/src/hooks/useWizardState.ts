@@ -24,6 +24,7 @@ interface WizardContextType extends WizardState {
   setActiveSheetTab: (tab: string) => void
   setSelectedCell: (cell: string | null) => void
   setSidePanelOpen: (open: boolean) => void
+  setUseCompanyContext: (enabled: boolean) => void
   resetWizard: () => void
   loadMockStep2: () => void
 }
@@ -38,6 +39,7 @@ const defaultState: WizardState = {
   workbookUrl: null,
   layer1Results: {},
   step1Approved: false,
+  useCompanyContext: true,
   layer2Results: {},
   corrections: [],
   step2Approved: false,
@@ -171,6 +173,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     }))
   }
 
+  function setUseCompanyContext(enabled: boolean) {
+    setState((s) => ({ ...s, useCompanyContext: enabled }))
+  }
+
   function resetWizard() {
     setState(defaultState)
   }
@@ -220,6 +226,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     setActiveSheetTab,
     setSelectedCell,
     setSidePanelOpen,
+    setUseCompanyContext,
     resetWizard,
     loadMockStep2,
   }

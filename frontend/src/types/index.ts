@@ -13,6 +13,7 @@ export interface WizardState {
   workbookUrl: string | null
   layer1Results: Record<string, Layer1Result>
   step1Approved: boolean
+  useCompanyContext: boolean
 
   // Step 2
   layer2Results: Record<string, Layer2Result>
@@ -83,6 +84,16 @@ export interface Layer2Request {
   session_id?: string | null
   statement_type: string
   layer1_data: Record<string, number>
+  company_id?: number | null
+  use_company_context?: boolean
+}
+
+export interface CompanyContextStatus {
+  company_id: number
+  company_name: string
+  has_rules: boolean
+  rule_count: number
+  word_count: number
 }
 
 export interface CorrectionRequest {
