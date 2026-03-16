@@ -24,7 +24,7 @@ export default function PdfPageViewer({
   activeStatementTab,
   onPageClick,
 }: PdfPageViewerProps) {
-  const [zoom, setZoom] = useState(1.0)
+  const [zoom, setZoom] = useState(0.8)
   const [currentPage, setCurrentPage] = useState(1)
   const [mainViewWidth, setMainViewWidth] = useState(600)
 
