@@ -245,6 +245,27 @@ export default function Step1Upload() {
     c.name.toLowerCase().includes(comboSearch.toLowerCase()),
   )
 
+  function normalizeCompanyName(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9]/g, '')
+  }
+
+  function findFuzzyMatches(input: string, allCompanies: Company[]): Company[] {
+    const normalizedInput = normalizeCompanyName(input)
+    if (normalizedInput.length < 2) return []
+    return allCompanies.filter((c) => {
+      const normalizedName = normalizeCompanyName(c.name)
+      return normalizedName.includes(normalizedInput) || normalizedInput.includes(normalizedName)
+    })
+  }
+
+  const hasExactMatch = companies.some(
+    (c) => c.name.toLowerCase() === comboSearch.trim().toLowerCase(),
+  )
+  const filteredIds = new Set(filteredCompanies.map((c) => c.id))
+  const fuzzyMatches = comboSearch.trim() && !hasExactMatch
+    ? findFuzzyMatches(comboSearch.trim(), companies).filter((c) => !filteredIds.has(c.id))
+    : []
+
   function handleSelectCompany(company: Company) {
     setCompanyName(company.name)
     setCompanyId(company.id)
@@ -609,22 +630,34 @@ export default function Step1Upload() {
                   {company.name}
                 </div>
               ))}
-              {comboSearch.trim() &&
-                !companies.some(
-                  (c) => c.name.toLowerCase() === comboSearch.trim().toLowerCase(),
-                ) && (
-                  <div
-                    className="px-3 py-2 text-[13px] text-blue-600 hover:bg-blue-50 cursor-pointer flex items-center gap-1.5 border-t border-border"
-                    onClick={handleCreateCompany}
-                  >
-                    {creatingCompany ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Plus className="w-3.5 h-3.5" />
-                    )}
-                    {creatingCompany ? 'Creating...' : `Add "${comboSearch.trim()}"`}
-                  </div>
-                )}
+              {fuzzyMatches.length > 0 && (
+                <div className="border-t border-border">
+                  <p className="text-[11px] text-muted-foreground italic px-3 py-1">Did you mean?</p>
+                  {fuzzyMatches.map((company) => (
+                    <div
+                      key={company.id}
+                      className="px-3 py-2 text-[13px] hover:bg-amber-50 cursor-pointer flex items-center gap-2 border-l-2 border-amber-400"
+                      onClick={() => handleSelectCompany(company)}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                      {company.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {comboSearch.trim() && !hasExactMatch && (
+                <div
+                  className="px-3 py-2 text-[13px] text-blue-600 hover:bg-blue-50 cursor-pointer flex items-center gap-1.5 border-t border-border"
+                  onClick={handleCreateCompany}
+                >
+                  {creatingCompany ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="w-3.5 h-3.5" />
+                  )}
+                  {creatingCompany ? 'Creating...' : `Add "${comboSearch.trim()}" as new company`}
+                </div>
+              )}
             </div>
           )}
         </div>
