@@ -19,6 +19,11 @@ router = APIRouter()
 CHANGELOG_PATH = DATA_DIR / "company_context_changelog.jsonl"
 
 
+def _normalize_company_name(name: str) -> str:
+    """Strip to lowercase alphanumeric for fuzzy duplicate detection."""
+    return re.sub(r'[^a-z0-9]', '', name.lower())
+
+
 def _derive_markdown_filename(company_name: str) -> str:
     """Convert company name to a safe markdown filename.
     e.g. 'Acme Corp & Sons' → 'acme_corp__sons.md'
@@ -60,13 +65,26 @@ def create_company(request: CompanyCreate, db: Session = Depends(get_db)):
 
     markdown_filename = _derive_markdown_filename(name)
 
-    # Check for duplicate
+    # Check for exact duplicate
     existing = db.execute(
         text("SELECT id FROM companies WHERE name = :name"),
         {"name": name},
     ).fetchone()
     if existing:
         raise HTTPException(status_code=409, detail=f"Company '{name}' already exists.")
+
+    # Check for normalized (fuzzy) duplicate
+    normalized_new = _normalize_company_name(name)
+    all_rows = db.execute(
+        text("SELECT id, name FROM companies")
+    ).fetchall()
+    for row in all_rows:
+        if _normalize_company_name(row[1]) == normalized_new:
+            raise HTTPException(
+                status_code=409,
+                detail=f"A similar company already exists: '{row[1]}'. "
+                       f"If this is a different company, contact an admin.",
+            )
 
     result = db.execute(
         text(
