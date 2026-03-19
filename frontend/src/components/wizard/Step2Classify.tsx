@@ -21,6 +21,7 @@ type RunStatus = 'idle' | 'loading' | 'done' | 'error'
 type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
 
 function formatSourceValue(value: number): string {
+  if (value === 0) return '—'
   const abs = Math.abs(value)
   const formatted = abs.toLocaleString('en-US', {
     minimumFractionDigits: 2,
