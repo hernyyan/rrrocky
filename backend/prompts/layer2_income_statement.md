@@ -1,6 +1,6 @@
 # Layer 2: Income Statement Classification
 
-You are given the extracted JSON output from Layer 1, containing all line items and their dollar values from a company's income statement. Your task is to classify each line item into the firm's standardized income statement template according to US GAAP standards and financial statement practice. Do not simply mirror how the source financials categorized an item. The output must be a JSON object matching the exact structure below, with dollar values populated for each applicable line item. Many line items will be left at 0 — this is expected, as most companies do not report at this level of granularity.
+You are given the extracted JSON output from Layer 1, containing all line items and their dollar values from a company's income statement. Your task is to classify each line item into the firm's standardized income statement template according to US GAAP standards and financial statement practice. Do not simply mirror how the source financials categorized an item. The output must be a JSON object matching the exact structure below, with dollar values populated for each applicable line item. Many line items will be left at null — this is expected, as most companies do not report at this level of granularity.
 
 ## Input
 
@@ -25,47 +25,47 @@ The reasoning trace must create a complete chain from every output value back to
 ```json
 {
   "REVENUE": {
-    "Gross Revenue": 0,
-    "Net Revenue": 0,
-    "Total Revenue": 0 },
+    "Gross Revenue": null,
+    "Net Revenue": null,
+    "Total Revenue": null },
   "COST OF GOODS SOLD": {
-    "COGS": 0,
-    "COGS - Depreciation & Amortization": 0,
-    "Gross Profit": 0,
-    "Gross Profit Margin %": 0 },
+    "COGS": null,
+    "COGS - Depreciation & Amortization": null,
+    "Gross Profit": null,
+    "Gross Profit Margin %": null },
   "OPERATING EXPENSES": {
-    "Sales & Marketing Expenses": 0,
-    "Administrative Expenses": 0,
-    "Compensation & Benefits Expense": 0,
-    "Research & Development": 0,
-    "Rent Expense": 0,
-    "Management Fee Expense": 0,
-    "Other Operating Expenses": 0,
-    "Total Operating Expenses": 0 },
-  "Net Operating Income": 0,
+    "Sales & Marketing Expenses": null,
+    "Administrative Expenses": null,
+    "Compensation & Benefits Expense": null,
+    "Research & Development": null,
+    "Rent Expense": null,
+    "Management Fee Expense": null,
+    "Other Operating Expenses": null,
+    "Total Operating Expenses": null },
+  "Net Operating Income": null,
   "BELOW THE LINE": {
-    "Depreciation & Amortization": 0,
-    "Loss/(Gain) on Assets, Debt, FX": 0,
-    "Non-Operating Expenses": 0,
-    "Non-Operating Expenses - Depreciation & Amortization": 0,
-    "Interest Expense/(Income)": 0,
-    "Other Income": 0,
-    "Other Expenses": 0,
-    "Total Expense/(Income)": 0 },
+    "Depreciation & Amortization": null,
+    "Loss/(Gain) on Assets, Debt, FX": null,
+    "Non-Operating Expenses": null,
+    "Non-Operating Expenses - Depreciation & Amortization": null,
+    "Interest Expense/(Income)": null,
+    "Other Income": null,
+    "Other Expenses": null,
+    "Total Expense/(Income)": null },
   "PRE-TAX AND NET INCOME": {
-    "Income (Loss) Before Taxes": 0,
-    "Taxes": 0,
-    "Net Income (Loss)": 0 },
+    "Income (Loss) Before Taxes": null,
+    "Taxes": null,
+    "Net Income (Loss)": null },
   "EBITDA": {
-    "EBIT": 0,
-    "EBITDA": 0,
-    "EBITDA Adjustments": 0,
-    "Adjusted EBITDA": 0,
-    "Covenant EBITDA": 0 },
+    "EBIT": null,
+    "EBITDA": null,
+    "EBITDA Adjustments": null,
+    "Adjusted EBITDA": null,
+    "Covenant EBITDA": null },
   "MARGINS": {
-    "EBITDA Margin %": 0,
-    "Adjusted EBITDA Margin %": 0,
-    "Covenant EBITDA Margin %": 0 }
+    "EBITDA Margin %": null,
+    "Adjusted EBITDA Margin %": null,
+    "Covenant EBITDA Margin %": null }
 }
 ```
 
@@ -79,7 +79,7 @@ Classify every line item from the Layer 1 extraction according to US GAAP standa
 
 **General Principle — Reasoning Integrity**: Every reasoning trace must be arithmetically verifiable. After generating reasoning, cross-check that the specific dollar amounts cited in the trace actually produce the output value when you apply the stated formula. Do NOT generate a reasoning trace that sounds plausible but does not match the math. If a line item was excluded from a calculation, the reasoning must not claim it was included. If you cannot reconcile a computed value with its components, flag the discrepancy rather than fabricating an explanation.
 
-**General Principle — Many Fields Will Be Blank**: Most companies do not report at the granularity of this template. Gross Revenue, COGS - Depreciation & Amortization, Research & Development, Non-Operating Expenses - D&A, and many other fields will frequently be 0. Do NOT force values into fields that the source does not support. A field left at 0 is correct when the source does not report it.
+**General Principle — Many Fields Will Be Blank**: Most companies do not report at the granularity of this template. Gross Revenue, COGS - Depreciation & Amortization, Research & Development, Non-Operating Expenses - D&A, and many other fields will frequently be null. Do NOT force values into fields that the source does not support. Leave them as null. A field left at null is correct when the source does not report it. Use 0 only when the source explicitly reports a zero value for that item. Output 0 only when the source document explicitly reports a zero dollar amount for that line item. Output null when the field has no corresponding data in the source.
 
 **General Principle — Backward-Induction from Margins and Percentages**: Companies sometimes report a margin percentage instead of, or in addition to, a dollar amount. When the source reports a margin % but not the corresponding dollar amount, compute the implied dollar value using the margin and the relevant base:
 - Gross Profit = Gross Profit Margin % × Total Revenue
@@ -227,6 +227,8 @@ After populating all line items, verify the following relationships. If any chec
 17. If both a dollar amount and a margin % are reported or computed for the same measure, verify they are consistent. Flag any discrepancy.
 18. If a computed value differs from the source document's reported value for the same line item, flag the discrepancy with both values noted.
 19. **Reported EBITDA cross-check**: If the source reports its own EBITDA or Adjusted EBITDA figure, compare against the calculated value. If they differ, flag the calculated field and include both values in the VALIDATION details.
+
+**Note on null vs. 0 in checks**: When computing validation checks, treat null fields as 0 for arithmetic purposes. A null field simply means the source did not report it — it does not indicate a computation error.
 
 ## Company-Specific Classification Rules
 

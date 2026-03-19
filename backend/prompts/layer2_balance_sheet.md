@@ -1,6 +1,6 @@
 # Layer 2: Balance Sheet Classification
 
-You are given the extracted JSON output from Layer 1, containing all line items and their dollar values from a company's balance sheet. Your task is to classify each line item into the firm's standardized balance sheet template according to US GAAP standards and financial statement practice. Do not simply mirror how the source financials categorized an item. The output must be a JSON object matching the exact structure below, with dollar values populated for each applicable line item.
+You are given the extracted JSON output from Layer 1, containing all line items and their dollar values from a company's balance sheet. Your task is to classify each line item into the firm's standardized balance sheet template according to US GAAP standards and financial statement practice. Do not simply mirror how the source financials categorized an item. The output must be a JSON object matching the exact structure below, with dollar values populated for each applicable line item. Use null for fields that have no corresponding data in the source. Use 0 only when the source explicitly reports a zero value for that item.
 
 ## Input
 
@@ -24,46 +24,46 @@ The reasoning trace must create a complete chain from every output value back to
 ```json
 {
   "ASSETS": {
-    "Cash & Cash Equivalents": 0,
-    "Short Term Investments": 0,
-    "Accounts Receivable": 0,
-    "Inventory": 0,
-    "Prepaid Expenses": 0,
-    "Other Current Assets": 0,
-    "Total Current Assets": 0,
-    "Property, Plant & Equipment": 0,
-    "Accumulated Depreciation": 0,
-    "Total Fixed Assets": 0,
-    "Other Non-Current Assets": 0,
-    "Goodwill & Intangibles": 0,
-    "Total Non-Current Assets": 0,
-    "Total Assets": 0 },
+    "Cash & Cash Equivalents": null,
+    "Short Term Investments": null,
+    "Accounts Receivable": null,
+    "Inventory": null,
+    "Prepaid Expenses": null,
+    "Other Current Assets": null,
+    "Total Current Assets": null,
+    "Property, Plant & Equipment": null,
+    "Accumulated Depreciation": null,
+    "Total Fixed Assets": null,
+    "Other Non-Current Assets": null,
+    "Goodwill & Intangibles": null,
+    "Total Non-Current Assets": null,
+    "Total Assets": null },
   "LIABILITIES": {
-    "Accounts Payable": 0,
-    "Short Term Loans": 0,
-    "Short Term Capitalized Leases": 0,
-    "Short Term Mortgages": 0,
-    "Short Term Debt": 0,
-    "Accrued Liabilities": 0,
-    "Other Current Liabilities": 0,
-    "Total Current Liabilities": 0,
-    "Long Term Loans": 0,
-    "Long Term Capitalized Leases": 0,
-    "Long Term Mortgages": 0,
-    "Long Term Debt": 0,
-    "Deferred Liabilities": 0,
-    "Other Non-Current Liabilities": 0,
-    "Total Non-Current Liabilities": 0,
-    "Total Liabilities": 0 },
+    "Accounts Payable": null,
+    "Short Term Loans": null,
+    "Short Term Capitalized Leases": null,
+    "Short Term Mortgages": null,
+    "Short Term Debt": null,
+    "Accrued Liabilities": null,
+    "Other Current Liabilities": null,
+    "Total Current Liabilities": null,
+    "Long Term Loans": null,
+    "Long Term Capitalized Leases": null,
+    "Long Term Mortgages": null,
+    "Long Term Debt": null,
+    "Deferred Liabilities": null,
+    "Other Non-Current Liabilities": null,
+    "Total Non-Current Liabilities": null,
+    "Total Liabilities": null },
   "EQUITY": {
-    "Preferred Stock": 0,
-    "Common Stock": 0,
-    "Paid in Capital": 0,
-    "Other Comprehensive Income": 0,
-    "Retained Earnings": 0,
-    "Minority Interest": 0,
-    "Total Equity": 0 },
-  "Total Liabilities and Equity": 0
+    "Preferred Stock": null,
+    "Common Stock": null,
+    "Paid in Capital": null,
+    "Other Comprehensive Income": null,
+    "Retained Earnings": null,
+    "Minority Interest": null,
+    "Total Equity": null },
+  "Total Liabilities and Equity": null
 }
 ```
 
@@ -137,6 +137,8 @@ If a line item from the Layer 1 extraction cannot be confidently classified (i.e
 ## Vertical Accounting Checks
 
 After populating all line items, verify the following. If any check fails, include a `"VALIDATION"` key in the output JSON listing each failed check with the expected vs. actual values.
+
+**Note on null vs. 0 in checks**: When computing validation checks, treat null fields as 0 for arithmetic purposes. A null field simply means the source did not report it — it does not indicate a computation error.
 
 1. **Total Current Assets** = Cash & Cash Equivalents + Short Term Investments + Accounts Receivable + Inventory + Prepaid Expenses + Other Current Assets
 2. **Total Fixed Assets** = Property, Plant & Equipment + Accumulated Depreciation

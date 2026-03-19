@@ -51,6 +51,7 @@ function detectSheetType(name: string): SheetType {
 
 // Format line item values: negatives as (123,456.78), positives as 123,456.78
 function formatLineItemValue(value: number): string {
+  if (value === 0) return '—'
   const abs = Math.abs(value)
   const formatted = abs.toLocaleString('en-US', {
     minimumFractionDigits: 2,

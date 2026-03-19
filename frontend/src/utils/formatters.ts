@@ -5,7 +5,7 @@
  */
 
 export function formatDollar(value: number): string {
-  if (value === 0) return '$0.00'
+  if (value === 0) return '—'
   const abs = Math.abs(value)
   const formatted = abs.toLocaleString('en-US', {
     minimumFractionDigits: 2,
@@ -15,7 +15,7 @@ export function formatDollar(value: number): string {
 }
 
 export function formatPercent(value: number): string {
-  if (value === 0) return '0.00%'
+  if (value === 0) return '—'
   return `${value.toFixed(2)}%`
 }
 
