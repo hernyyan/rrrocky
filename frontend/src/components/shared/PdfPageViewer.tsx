@@ -142,7 +142,7 @@ export default function PdfPageViewer({
                   key={pageNum}
                   ref={(el) => { thumbnailRefs.current[pageNum] = el }}
                   className="flex flex-col items-center cursor-pointer"
-                  onClick={() => { onPageClick(pageNum); scrollMainToPage(pageNum) }}
+                  onClick={() => scrollMainToPage(pageNum)}
                 >
                   <div
                     className={`relative rounded border-2 overflow-hidden transition-all hover:shadow-sm ${borderClass} ${
@@ -155,16 +155,23 @@ export default function PdfPageViewer({
                       renderTextLayer={false}
                       renderAnnotationLayer={false}
                     />
-                    {assignment && (
-                      <span
-                        className={`absolute top-1 right-1 px-1 py-0.5 rounded text-[9px] text-white ${
-                          assignment === 'income_statement' ? 'bg-blue-500' : 'bg-emerald-500'
-                        }`}
-                        style={{ fontWeight: 600 }}
-                      >
-                        {assignment === 'income_statement' ? 'IS' : 'BS'}
-                      </span>
-                    )}
+                    {/* Checkbox — top-right, click-only selection */}
+                    <div
+                      className={`absolute top-1.5 right-1.5 z-10 w-4 h-4 rounded-sm border flex items-center justify-center transition-all hover:ring-2 hover:ring-offset-1 ${
+                        assignment === 'income_statement'
+                          ? 'bg-blue-500 border-blue-500 hover:ring-blue-300'
+                          : assignment === 'balance_sheet'
+                            ? 'bg-emerald-500 border-emerald-500 hover:ring-emerald-300'
+                            : 'bg-white border-gray-300 hover:ring-gray-300'
+                      }`}
+                      onClick={(e) => { e.stopPropagation(); onPageClick(pageNum) }}
+                    >
+                      {assignment && (
+                        <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                          <path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
                   </div>
                   <span
                     className={`text-[10px] mt-0.5 ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}
@@ -198,14 +205,13 @@ export default function PdfPageViewer({
                   key={pageNum}
                   data-page={pageNum}
                   ref={(el) => { pageRefs.current[pageNum] = el }}
-                  className={`relative cursor-pointer shadow-md bg-white ${
+                  className={`relative shadow-md bg-white ${
                     assignment === 'income_statement'
                       ? 'ring-2 ring-blue-400'
                       : assignment === 'balance_sheet'
                         ? 'ring-2 ring-emerald-400'
                         : ''
                   }`}
-                  onClick={() => onPageClick(pageNum)}
                 >
                   <Page
                     pageNumber={pageNum}
@@ -213,6 +219,23 @@ export default function PdfPageViewer({
                     renderTextLayer={true}
                     renderAnnotationLayer={false}
                   />
+                  {/* Checkbox — top-right, click-only selection */}
+                  <div
+                    className={`absolute top-2 right-2 z-10 w-4 h-4 rounded-sm border flex items-center justify-center transition-all cursor-pointer hover:ring-2 hover:ring-offset-1 ${
+                      assignment === 'income_statement'
+                        ? 'bg-blue-500 border-blue-500 hover:ring-blue-300'
+                        : assignment === 'balance_sheet'
+                          ? 'bg-emerald-500 border-emerald-500 hover:ring-emerald-300'
+                          : 'bg-white border-gray-300 hover:ring-gray-300'
+                    }`}
+                    onClick={(e) => { e.stopPropagation(); onPageClick(pageNum) }}
+                  >
+                    {assignment && (
+                      <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                        <path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </div>
                   {/* Page number + badge overlay */}
                   <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
                     {assignment && (

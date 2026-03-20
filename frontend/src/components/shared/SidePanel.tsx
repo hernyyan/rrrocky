@@ -256,8 +256,7 @@ export default function SidePanel({
 
         {/* Correction form */}
         <div className="px-4 py-3 space-y-3">
-          <h4 className="text-[12px] flex items-center gap-1.5" style={{ fontWeight: 500 }}>
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+          <h4 className="text-[12px]" style={{ fontWeight: 500 }}>
             Submit Correction
           </h4>
 

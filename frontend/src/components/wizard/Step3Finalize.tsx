@@ -115,7 +115,7 @@ export default function Step3Finalize() {
   const totalPopulated = [
     ...Object.values(finalValues.income_statement),
     ...Object.values(finalValues.balance_sheet),
-  ].filter((v) => v !== null && v !== 0).length
+  ].filter((v) => v !== null).length
 
   const flaggedRemaining = [...allFlaggedFields].filter(
     (f) => !correctedFieldNames.has(f),
