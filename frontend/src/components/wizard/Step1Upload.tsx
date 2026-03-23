@@ -4,9 +4,9 @@ import TabSelector from '../shared/TabSelector'
 import ExcelViewer from '../shared/ExcelViewer'
 import PdfPageViewer from '../shared/PdfPageViewer'
 import StatusBanner from '../shared/StatusBanner'
-import { uploadFile, runLayer1, runLayer1Pdf, getCompanies, createCompany, getCompanyContextStatus } from '../../api/client'
+import { uploadFile, runLayer1, runLayer1Pdf, getCompanies, createCompany, getCompanyContextStatus, checkExistingReview, continuePreviousReview } from '../../api/client'
 import { API_BASE } from '../../api/client'
-import type { Company, CompanyContextStatus, Layer1Result } from '../../types'
+import type { Company, CompanyContextStatus, Layer1Result, Layer2Result, Correction } from '../../types'
 import {
   Upload,
   Search,
@@ -150,6 +150,8 @@ export default function Step1Upload() {
     setWorkbookUrl,
     setLayer1Results,
     mergeLayer1Result,
+    setLayer2Results,
+    addCorrection,
     setActiveSheetTab,
     setUseCompanyContext,
     setUploadFileType,
@@ -179,6 +181,14 @@ export default function Step1Upload() {
   const [comboOpen, setComboOpen] = useState(false)
   const [comboSearch, setComboSearch] = useState(companyName)
   const [creatingCompany, setCreatingCompany] = useState(false)
+  const [duplicateCheck, setDuplicateCheck] = useState<{
+    exists: boolean
+    sessionId: string
+    finalizedAt: string | null
+  } | null>(null)
+  const [pendingExtraction, setPendingExtraction] = useState<{
+    type: 'excel'; tabName: string
+  } | { type: 'pdf' } | null>(null)
 
   const hasUpload = uploadFileType === 'excel'
     ? sheetNames.length > 0
@@ -446,16 +456,8 @@ export default function Step1Upload() {
     setPdfPageAssignments(newAssignments)
   }
 
-  async function handlePdfExtraction() {
+  async function handlePdfExtractionInner() {
     if (!sessionId) return
-    if (!reportingPeriod.trim() || !companyName.trim()) {
-      setStatus({
-        type: 'error',
-        message: 'Please enter company name and reporting period before running extraction.',
-      })
-      return
-    }
-
     const pages = Object.entries(pdfPageAssignments)
       .filter(([, type]) => type === pdfActiveTab)
       .map(([page]) => parseInt(page))
@@ -490,7 +492,7 @@ export default function Step1Upload() {
     }
   }
 
-  async function handleRunExtraction(tabName: string) {
+  async function handlePdfExtraction() {
     if (!sessionId) return
     if (!reportingPeriod.trim() || !companyName.trim()) {
       setStatus({
@@ -499,6 +501,25 @@ export default function Step1Upload() {
       })
       return
     }
+
+    if (companyId) {
+      try {
+        const existing = await checkExistingReview(companyId, reportingPeriod)
+        if (existing.exists) {
+          setDuplicateCheck({ exists: true, sessionId: existing.session_id!, finalizedAt: existing.finalized_at ?? null })
+          setPendingExtraction({ type: 'pdf' })
+          return
+        }
+      } catch {
+        // If check fails, proceed with extraction anyway
+      }
+    }
+
+    handlePdfExtractionInner()
+  }
+
+  async function handleRunExtractionInner(tabName: string) {
+    if (!sessionId) return
     const tabState = tabStates[tabName]
     if (!tabState) return
 
@@ -581,6 +602,66 @@ export default function Step1Upload() {
         })
       }
     }
+  }
+
+  async function handleRunExtraction(tabName: string) {
+    if (!sessionId) return
+    if (!reportingPeriod.trim() || !companyName.trim()) {
+      setStatus({
+        type: 'error',
+        message: 'Please enter company name and reporting period before running extraction.',
+      })
+      return
+    }
+
+    if (companyId) {
+      try {
+        const existing = await checkExistingReview(companyId, reportingPeriod)
+        if (existing.exists) {
+          setDuplicateCheck({ exists: true, sessionId: existing.session_id!, finalizedAt: existing.finalized_at ?? null })
+          setPendingExtraction({ type: 'excel', tabName })
+          return
+        }
+      } catch {
+        // If check fails, proceed with extraction anyway
+      }
+    }
+
+    handleRunExtractionInner(tabName)
+  }
+
+  async function handleContinuePrevious() {
+    if (!companyId) return
+    setDuplicateCheck(null)
+    try {
+      const data = await continuePreviousReview(companyId, reportingPeriod)
+      setSessionId(data.session_id)
+      setLayer1Results((data.layer1_data as Record<string, Layer1Result>) || {})
+      if (data.layer2_data) {
+        setLayer2Results(data.layer2_data as Record<string, Layer2Result>)
+      }
+      if (data.corrections && Array.isArray(data.corrections)) {
+        for (const c of data.corrections) {
+          addCorrection(c as Correction)
+        }
+      }
+      approveStep1()
+    } catch (err) {
+      setStatus({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load previous review.',
+      })
+    }
+  }
+
+  function handleOverwrite() {
+    setDuplicateCheck(null)
+    if (pendingExtraction?.type === 'excel') {
+      handleRunExtractionInner(pendingExtraction.tabName)
+    } else if (pendingExtraction?.type === 'pdf') {
+      handlePdfExtractionInner()
+    }
+    setPendingExtraction(null)
   }
 
   const placeholderTabs = ['Sheet 1', 'Sheet 2']
@@ -957,6 +1038,46 @@ export default function Step1Upload() {
           </div>
         )}
       </div>
+
+      {duplicateCheck?.exists && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-[15px] mb-2" style={{ fontWeight: 600 }}>
+              Existing Data Found
+            </h3>
+            <p className="text-[13px] text-muted-foreground mb-5">
+              <span style={{ fontWeight: 500 }}>{companyName}</span> — {reportingPeriod} was
+              already loaded and finalized
+              {duplicateCheck.finalizedAt
+                ? ` on ${new Date(duplicateCheck.finalizedAt).toLocaleDateString()}`
+                : ''}.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleContinuePrevious}
+                className="w-full py-2 rounded-lg text-[13px] bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                style={{ fontWeight: 500 }}
+              >
+                Continue with Previous
+              </button>
+              <button
+                onClick={handleOverwrite}
+                className="w-full py-2 rounded-lg text-[13px] border border-border text-foreground hover:bg-gray-50 transition-colors"
+                style={{ fontWeight: 500 }}
+              >
+                Upload New &amp; Overwrite
+              </button>
+              <button
+                onClick={() => { setDuplicateCheck(null); setPendingExtraction(null) }}
+                className="w-full py-2 rounded-lg text-[13px] text-muted-foreground hover:text-foreground transition-colors"
+                style={{ fontWeight: 500 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

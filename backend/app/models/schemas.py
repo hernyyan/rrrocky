@@ -222,3 +222,7 @@ class AdminWriteRuleRequest(BaseModel):
 
 class AdminRenameCompanyRequest(BaseModel):
     name: str
+
+class ContinuePreviousRequest(BaseModel):
+    company_id: int
+    reporting_period: str

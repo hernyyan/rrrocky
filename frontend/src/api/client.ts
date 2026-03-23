@@ -188,6 +188,25 @@ export async function getCompanyContextStatus(companyId: number): Promise<Compan
   return handleResponse<CompanyContextStatus>(res)
 }
 
+// GET /reviews/check-existing
+export async function checkExistingReview(companyId: number, reportingPeriod: string): Promise<{ exists: boolean; session_id?: string; finalized_at?: string | null }> {
+  const params = new URLSearchParams({ company_id: String(companyId), reporting_period: reportingPeriod })
+  const res = await fetch(`${API_BASE}/reviews/check-existing?${params}`)
+  if (!res.ok) throw new Error('Failed to check existing review')
+  return res.json()
+}
+
+// POST /reviews/continue-previous
+export async function continuePreviousReview(companyId: number, reportingPeriod: string): Promise<{ session_id: string; company_name: string; reporting_period: string; layer1_data: unknown; layer2_data: unknown; corrections: unknown[] }> {
+  const res = await fetch(`${API_BASE}/reviews/continue-previous`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ company_id: companyId, reporting_period: reportingPeriod }),
+  })
+  if (!res.ok) throw new Error('Failed to continue previous review')
+  return res.json()
+}
+
 // POST /datasets/append
 export async function appendToCompanyDataset(
   sessionId: string | null,

@@ -1,0 +1,110 @@
+"""
+GET /reviews/check-existing   — Check if finalized data exists for a company+period.
+POST /reviews/continue-previous — Create a new session pre-populated from the latest finalized review.
+"""
+import json
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+
+from app.db.database import get_db
+from app.models.schemas import ContinuePreviousRequest
+
+router = APIRouter()
+
+
+@router.get("/reviews/check-existing")
+def check_existing_review(
+    company_id: int = Query(...),
+    reporting_period: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Check if finalized data exists for this company+period."""
+    company = db.execute(
+        text("SELECT name FROM companies WHERE id = :id"),
+        {"id": company_id},
+    ).fetchone()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found.")
+
+    row = db.execute(
+        text("""
+            SELECT session_id, finalized_at
+            FROM reviews
+            WHERE company_name = :name
+              AND reporting_period = :period
+              AND final_output IS NOT NULL
+            ORDER BY finalized_at DESC
+            LIMIT 1
+        """),
+        {"name": company[0], "period": reporting_period},
+    ).fetchone()
+
+    if row:
+        return {
+            "exists": True,
+            "session_id": row[0],
+            "finalized_at": str(row[1]) if row[1] else None,
+        }
+    return {"exists": False}
+
+
+@router.post("/reviews/continue-previous")
+def continue_previous_review(
+    request: ContinuePreviousRequest,
+    db: Session = Depends(get_db),
+):
+    """Create a new review session pre-populated with the latest finalized data."""
+    company = db.execute(
+        text("SELECT name FROM companies WHERE id = :id"),
+        {"id": request.company_id},
+    ).fetchone()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found.")
+
+    source = db.execute(
+        text("""
+            SELECT session_id, layer1_data, layer2_data, corrections
+            FROM reviews
+            WHERE company_name = :name
+              AND reporting_period = :period
+              AND final_output IS NOT NULL
+            ORDER BY finalized_at DESC
+            LIMIT 1
+        """),
+        {"name": company[0], "period": request.reporting_period},
+    ).fetchone()
+
+    if not source:
+        raise HTTPException(status_code=404, detail="No finalized review found for this period.")
+
+    new_session_id = str(uuid.uuid4())
+
+    db.execute(
+        text("""
+            INSERT INTO reviews (session_id, company_name, reporting_period, status,
+                                 layer1_data, layer2_data, corrections)
+            VALUES (:sid, :name, :period, 'in_progress',
+                    :l1, :l2, :corrections)
+        """),
+        {
+            "sid": new_session_id,
+            "name": company[0],
+            "period": request.reporting_period,
+            "l1": source[1],
+            "l2": source[2],
+            "corrections": source[3],
+        },
+    )
+    db.commit()
+
+    return {
+        "session_id": new_session_id,
+        "company_name": company[0],
+        "reporting_period": request.reporting_period,
+        "layer1_data": json.loads(source[1]) if isinstance(source[1], str) else source[1],
+        "layer2_data": json.loads(source[2]) if isinstance(source[2], str) else source[2],
+        "corrections": json.loads(source[3]) if isinstance(source[3], str) else (source[3] or []),
+    }
