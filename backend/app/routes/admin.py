@@ -447,7 +447,7 @@ def admin_write_rule(
 
 @router.get("/company-data/{company_id}")
 def admin_company_data(company_id: int, db: Session = Depends(get_db)):
-    """Return all L1/L2 data for a company across all review sessions."""
+    """Return finalized L1/L2 data for a company — latest load per period, chronological."""
     company = db.execute(
         text("SELECT name FROM companies WHERE id = :id"),
         {"id": company_id},
@@ -457,11 +457,18 @@ def admin_company_data(company_id: int, db: Session = Depends(get_db)):
 
     rows = db.execute(
         text("""
-            SELECT session_id, reporting_period, layer1_data, layer2_data,
-                   status, created_at, finalized_at
-            FROM reviews
-            WHERE company_name = :name
-            ORDER BY created_at ASC
+            SELECT r.session_id, r.reporting_period, r.layer1_data, r.layer2_data,
+                   r.finalized_at
+            FROM reviews r
+            INNER JOIN (
+                SELECT reporting_period, MAX(finalized_at) as max_finalized
+                FROM reviews
+                WHERE company_name = :name AND final_output IS NOT NULL
+                GROUP BY reporting_period
+            ) latest ON r.reporting_period = latest.reporting_period
+                    AND r.finalized_at = latest.max_finalized
+            WHERE r.company_name = :name AND r.final_output IS NOT NULL
+            ORDER BY r.reporting_period ASC
         """),
         {"name": company[0]},
     ).fetchall()
@@ -471,11 +478,9 @@ def admin_company_data(company_id: int, db: Session = Depends(get_db)):
         periods.append({
             "session_id": row[0],
             "reporting_period": row[1],
-            "layer1_data": json.loads(row[2]) if row[2] else None,
-            "layer2_data": json.loads(row[3]) if row[3] else None,
-            "status": row[4],
-            "created_at": str(row[5]) if row[5] else None,
-            "finalized_at": str(row[6]) if row[6] else None,
+            "layer1_data": json.loads(row[2]) if isinstance(row[2], str) else row[2],
+            "layer2_data": json.loads(row[3]) if isinstance(row[3], str) else row[3],
+            "finalized_at": str(row[4]) if row[4] else None,
         })
 
     return {"company_id": company_id, "company_name": company[0], "periods": periods}

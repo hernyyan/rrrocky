@@ -78,8 +78,6 @@ export interface CompanyPeriodData {
   reporting_period: string
   layer1_data: Record<string, unknown> | null
   layer2_data: Record<string, unknown> | null
-  status: string
-  created_at: string | null
   finalized_at: string | null
 }
 

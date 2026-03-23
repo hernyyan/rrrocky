@@ -1,11 +1,49 @@
 import { useState } from 'react'
 import { CompanyPeriodData } from './AdminApiClient'
+import { getTemplate } from '../../api/client'
+import { useEffect } from 'react'
+import type { TemplateResponse } from '../../types'
 
 interface Props {
   periods: CompanyPeriodData[]
 }
 
 type View = 'l1' | 'l2'
+
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTH_SHORT  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function parseReportingPeriod(period: string): { year: number; month: number; key: string } | null {
+  const months: Record<string, number> = {
+    january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+    july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  }
+  const parts = period.trim().split(/\s+/)
+  if (parts.length !== 2) return null
+  const month = months[parts[0].toLowerCase()]
+  const year = parseInt(parts[1])
+  if (!month || isNaN(year)) return null
+  return { year, month, key: `${year}-${String(month).padStart(2, '0')}` }
+}
+
+function generateMonthRange(
+  start: { year: number; month: number },
+  end: { year: number; month: number },
+): { year: number; month: number; key: string; label: string; shortLabel: string }[] {
+  const result = []
+  let y = start.year, m = start.month
+  while (y < end.year || (y === end.year && m <= end.month)) {
+    result.push({
+      year: y, month: m,
+      key: `${y}-${String(m).padStart(2, '0')}`,
+      label: `${MONTH_NAMES[m - 1]} ${y}`,
+      shortLabel: `${MONTH_SHORT[m - 1]} ${y}`,
+    })
+    m++
+    if (m > 12) { m = 1; y++ }
+  }
+  return result
+}
 
 function formatVal(v: unknown): string {
   if (v === null || v === undefined) return '—'
@@ -20,40 +58,64 @@ function formatVal(v: unknown): string {
 
 export default function CompanyDataTable({ periods }: Props) {
   const [view, setView] = useState<View>('l2')
+  const [template, setTemplate] = useState<TemplateResponse | null>(null)
+
+  useEffect(() => {
+    getTemplate().then(setTemplate).catch(console.error)
+  }, [])
 
   if (periods.length === 0) {
-    return <p className="text-[12px] text-muted-foreground p-4">No review data found for this company.</p>
+    return <p className="text-[12px] text-muted-foreground p-4">No finalized data for this company.</p>
   }
 
-  // Collect all row labels across all periods
-  const allLabels = new Set<string>()
+  // Build a map from period key → period data
+  const periodByKey = new Map<string, CompanyPeriodData>()
+  let minParsed: { year: number; month: number } | null = null
+  let maxParsed: { year: number; month: number } | null = null
+
   for (const p of periods) {
-    const data = view === 'l1' ? p.layer1_data : p.layer2_data
-    if (!data) continue
-    // L2 data is nested under statement sections; L1 is flat lineItems
-    if (view === 'l1') {
-      const lineItems = (data as Record<string, unknown>).lineItems
-      if (lineItems && typeof lineItems === 'object') {
-        Object.keys(lineItems as object).forEach((k) => allLabels.add(k))
-      }
-    } else {
-      // L2 values: flat key→value under each statement type
-      const is = (data as Record<string, unknown>).income_statement
-      const bs = (data as Record<string, unknown>).balance_sheet
-      if (is && typeof is === 'object') {
-        const vals = (is as Record<string, unknown>).values
-        if (vals && typeof vals === 'object') Object.keys(vals as object).forEach((k) => allLabels.add(k))
-      }
-      if (bs && typeof bs === 'object') {
-        const vals = (bs as Record<string, unknown>).values
-        if (vals && typeof vals === 'object') Object.keys(vals as object).forEach((k) => allLabels.add(k))
+    const parsed = parseReportingPeriod(p.reporting_period)
+    if (!parsed) continue
+    periodByKey.set(parsed.key, p)
+    if (!minParsed || parsed.key < `${minParsed.year}-${String(minParsed.month).padStart(2, '0')}`) minParsed = parsed
+    if (!maxParsed || parsed.key > `${maxParsed.year}-${String(maxParsed.month).padStart(2, '0')}`) maxParsed = parsed
+  }
+
+  if (!minParsed || !maxParsed) {
+    return <p className="text-[12px] text-muted-foreground p-4">No parseable period data.</p>
+  }
+
+  const columns = generateMonthRange(minParsed, maxParsed)
+
+  // Collect row labels
+  let labels: string[] = []
+  if (view === 'l2' && template) {
+    // Use template field order for L2
+    for (const stmt of ['income_statement', 'balance_sheet'] as const) {
+      for (const section of template[stmt]?.sections ?? []) {
+        for (const field of section.fields) {
+          if (!labels.includes(field)) labels.push(field)
+        }
       }
     }
+  } else {
+    // L1: collect all unique lineItem keys across all periods
+    const allKeys = new Set<string>()
+    for (const p of periods) {
+      const data = p.layer1_data
+      if (!data) continue
+      const lineItems = (data as Record<string, unknown>).lineItems
+      if (lineItems && typeof lineItems === 'object') {
+        Object.keys(lineItems as object).forEach((k) => allKeys.add(k))
+      }
+    }
+    labels = Array.from(allKeys)
   }
-  const labels = Array.from(allLabels)
 
-  function getCellValue(period: CompanyPeriodData, label: string): unknown {
-    const data = view === 'l1' ? period.layer1_data : period.layer2_data
+  function getCellValue(colKey: string, label: string): unknown {
+    const p = periodByKey.get(colKey)
+    if (!p) return null
+    const data = view === 'l1' ? p.layer1_data : p.layer2_data
     if (!data) return null
     if (view === 'l1') {
       const lineItems = (data as Record<string, unknown>).lineItems as Record<string, unknown> | undefined
@@ -87,24 +149,36 @@ export default function CompanyDataTable({ periods }: Props) {
           <thead>
             <tr className="bg-gray-50 border-b border-border sticky top-0">
               <th className="text-left px-3 py-2 text-muted-foreground min-w-[220px]" style={{ fontWeight: 500 }}>Field</th>
-              {periods.map((p) => (
-                <th key={p.session_id} className="text-right px-3 py-2 text-muted-foreground whitespace-nowrap font-mono min-w-[120px]" style={{ fontWeight: 500 }}>
-                  {p.reporting_period || p.session_id.slice(0, 8)}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const hasData = periodByKey.has(col.key)
+                return (
+                  <th
+                    key={col.key}
+                    className={`text-right px-3 py-2 whitespace-nowrap font-mono min-w-[100px] ${hasData ? 'text-muted-foreground' : 'text-gray-300'}`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    {col.shortLabel}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
             {labels.map((label, i) => (
               <tr key={label} className={i % 2 === 0 ? '' : 'bg-gray-50/50'}>
                 <td className="px-3 py-1.5 border-r border-gray-100 text-foreground">{label}</td>
-                {periods.map((p) => {
-                  const val = getCellValue(p, label)
+                {columns.map((col) => {
+                  const val = getCellValue(col.key, label)
                   const display = formatVal(val)
+                  const isGap = !periodByKey.has(col.key)
                   return (
                     <td
-                      key={p.session_id}
-                      className={`px-3 py-1.5 text-right font-mono ${display === '—' ? 'text-muted-foreground' : typeof val === 'number' && val < 0 ? 'text-red-600' : ''}`}
+                      key={col.key}
+                      className={`px-3 py-1.5 text-right font-mono ${
+                        isGap ? 'text-gray-200' :
+                        display === '—' ? 'text-muted-foreground' :
+                        typeof val === 'number' && val < 0 ? 'text-red-600' : ''
+                      }`}
                     >
                       {display}
                     </td>
