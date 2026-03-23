@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { ChevronLeft, Loader2 } from 'lucide-react'
-import { adminGetCompanyContext, adminGetCompanyData, adminGetCompanyCorrections, AdminCompanyContext, CompanyPeriodData, AdminCorrection } from './AdminApiClient'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronLeft, Check, X, Edit3, Loader2 } from 'lucide-react'
+import { adminGetCompanyContext, adminGetCompanyData, adminGetCompanyCorrections, adminRenameCompany, AdminCompanyContext, CompanyPeriodData, AdminCorrection } from './AdminApiClient'
 import CompanyContextEditor from './CompanyContextEditor'
 import TemplateFieldList from './TemplateFieldList'
 import RuleWriter from './RuleWriter'
@@ -33,6 +33,12 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('data')
   const [selectedField, setSelectedField] = useState<{ name: string; statementType: string } | null>(null)
 
+  // Rename state
+  const [renaming, setRenaming] = useState(false)
+  const [renameText, setRenameText] = useState('')
+  const [renameSaving, setRenameSaving] = useState(false)
+  const renameInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     setLoading(true)
     Promise.all([
@@ -46,6 +52,31 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
       setCorrections(corr.corrections)
     }).catch(console.error).finally(() => setLoading(false))
   }, [companyId])
+
+  function startRename() {
+    setRenameText(context?.name ?? '')
+    setRenaming(true)
+    setTimeout(() => renameInputRef.current?.select(), 0)
+  }
+
+  function cancelRename() {
+    setRenaming(false)
+    setRenameText('')
+  }
+
+  async function saveRename() {
+    if (!renameText.trim() || renameSaving) return
+    setRenameSaving(true)
+    try {
+      const res = await adminRenameCompany(companyId, renameText.trim())
+      setContext((prev) => prev ? { ...prev, name: res.new_name } : prev)
+      setRenaming(false)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Rename failed')
+    } finally {
+      setRenameSaving(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -73,7 +104,39 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
           Companies
         </button>
         <span className="text-muted-foreground text-[12px]">/</span>
-        <span className="text-[13px]" style={{ fontWeight: 500 }}>{context?.name ?? `Company ${companyId}`}</span>
+        {renaming ? (
+          <div className="flex items-center gap-1">
+            <input
+              ref={renameInputRef}
+              className="border border-border rounded px-2 py-0.5 text-[13px] outline-none focus:ring-2 focus:ring-primary/20"
+              value={renameText}
+              onChange={(e) => setRenameText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveRename()
+                if (e.key === 'Escape') cancelRename()
+              }}
+              disabled={renameSaving}
+              style={{ minWidth: 180 }}
+            />
+            <button
+              onClick={saveRename}
+              disabled={renameSaving || !renameText.trim()}
+              className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+            >
+              {renameSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5 text-emerald-600" />}
+            </button>
+            <button onClick={cancelRename} className="p-1 rounded hover:bg-gray-100">
+              <X className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px]" style={{ fontWeight: 500 }}>{context?.name ?? `Company ${companyId}`}</span>
+            <button onClick={startRename} className="p-1 rounded hover:bg-gray-100 text-muted-foreground hover:text-foreground transition-colors">
+              <Edit3 className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Three-panel section */}

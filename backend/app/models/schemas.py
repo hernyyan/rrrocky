@@ -219,3 +219,6 @@ class AdminWriteRuleRequest(BaseModel):
     field_name: str
     statement_type: str  # 'income_statement' | 'balance_sheet'
     rule_text: str
+
+class AdminRenameCompanyRequest(BaseModel):
+    name: str

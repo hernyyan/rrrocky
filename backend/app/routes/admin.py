@@ -10,6 +10,7 @@ GET /admin/reviews/{session_id}/export  — Download finalized output as a CSV f
 import csv
 import json
 import re
+import shutil
 from io import StringIO
 from typing import Optional
 
@@ -18,7 +19,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.config import COMPANY_CONTEXT_DIR, DATA_DIR
+from app.config import COMPANY_CONTEXT_DIR, COMPANY_DATASETS_DIR, DATA_DIR
 from app.db.database import get_db
 from app.services.template_service import get_template_service
 
@@ -334,7 +335,8 @@ def _read_jsonl(path) -> list:
 # ── Endpoint 8: PUT /admin/company-context/{company_id} ───────────────────────
 
 from datetime import datetime, timezone
-from app.models.schemas import AdminContextUpdateRequest, AdminWriteRuleRequest
+from app.models.schemas import AdminContextUpdateRequest, AdminWriteRuleRequest, AdminRenameCompanyRequest
+from app.routes.companies import _normalize_company_name, _derive_markdown_filename, _create_markdown_file
 from app.services.claude_service import get_claude_service
 from app.config import LAYER_A_MODEL, LAYER_B_MODEL
 
@@ -513,3 +515,165 @@ def admin_company_corrections(company_id: int, db: Session = Depends(get_db)):
             for r in rows
         ],
     }
+
+
+# ── Endpoint 12: PUT /admin/companies/{company_id}/rename ─────────────────────
+
+@router.put("/companies/{company_id}/rename")
+def admin_rename_company(
+    company_id: int,
+    request: AdminRenameCompanyRequest,
+    db: Session = Depends(get_db),
+):
+    """Rename a company everywhere: DB, markdown file, datasets directory."""
+    new_name = request.name.strip()
+    if not new_name:
+        raise HTTPException(status_code=422, detail="Name cannot be empty.")
+
+    row = db.execute(
+        text("SELECT name, markdown_filename FROM companies WHERE id = :id"),
+        {"id": company_id},
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Company not found.")
+
+    old_name, old_md_filename = row[0], row[1]
+
+    # Exact-match duplicate check (exclude self)
+    existing = db.execute(
+        text("SELECT id FROM companies WHERE LOWER(name) = LOWER(:name) AND id != :id"),
+        {"name": new_name, "id": company_id},
+    ).fetchone()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"A company named '{new_name}' already exists.")
+
+    new_md_filename = _derive_markdown_filename(new_name)
+
+    # Rename markdown file on disk and update header
+    old_md_path = COMPANY_CONTEXT_DIR / old_md_filename
+    new_md_path = COMPANY_CONTEXT_DIR / new_md_filename
+    if old_md_path.exists():
+        content = old_md_path.read_text(encoding="utf-8")
+        # Replace first heading line if it matches the old company name pattern
+        old_header = f"# {old_name} — Classification Context"
+        new_header = f"# {new_name} — Classification Context"
+        content = content.replace(old_header, new_header, 1)
+        new_md_path.write_text(content, encoding="utf-8")
+        if old_md_path != new_md_path:
+            old_md_path.unlink()
+
+    # Rename datasets directory on disk
+    old_datasets_dir = COMPANY_DATASETS_DIR / old_name
+    new_datasets_dir = COMPANY_DATASETS_DIR / new_name
+    if old_datasets_dir.exists() and old_datasets_dir != new_datasets_dir:
+        old_datasets_dir.rename(new_datasets_dir)
+
+    # Update DB: companies table
+    db.execute(
+        text("UPDATE companies SET name = :name, markdown_filename = :md WHERE id = :id"),
+        {"name": new_name, "md": new_md_filename, "id": company_id},
+    )
+
+    # Update DB: reviews table
+    db.execute(
+        text("UPDATE reviews SET company_name = :new WHERE company_name = :old"),
+        {"new": new_name, "old": old_name},
+    )
+
+    # Update DB: company_specific_corrections table
+    db.execute(
+        text("UPDATE company_specific_corrections SET company_name = :new WHERE company_name = :old"),
+        {"new": new_name, "old": old_name},
+    )
+
+    db.commit()
+
+    return {"success": True, "old_name": old_name, "new_name": new_name}
+
+
+# ── Endpoint 13: POST /admin/companies ────────────────────────────────────────
+
+@router.post("/companies", status_code=201)
+def admin_create_company(
+    request: AdminRenameCompanyRequest,
+    db: Session = Depends(get_db),
+):
+    """Create a new company with a blank markdown context file."""
+    name = request.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Name cannot be empty.")
+
+    # Exact duplicate check
+    existing_exact = db.execute(
+        text("SELECT id FROM companies WHERE LOWER(name) = LOWER(:name)"),
+        {"name": name},
+    ).fetchone()
+    if existing_exact:
+        raise HTTPException(status_code=409, detail=f"Company '{name}' already exists.")
+
+    # Normalized fuzzy duplicate check
+    name_normalized = _normalize_company_name(name)
+    all_names = db.execute(text("SELECT id, name FROM companies")).fetchall()
+    for existing_id, existing_name in all_names:
+        if _normalize_company_name(existing_name) == name_normalized:
+            raise HTTPException(
+                status_code=409,
+                detail=f"A similar company already exists: '{existing_name}'.",
+            )
+
+    md_filename = _derive_markdown_filename(name)
+
+    result = db.execute(
+        text(
+            "INSERT INTO companies (name, markdown_filename) VALUES (:name, :md) RETURNING id"
+        ),
+        {"name": name, "md": md_filename},
+    )
+    new_id = result.fetchone()[0]
+    db.commit()
+
+    _create_markdown_file(name, md_filename)
+
+    return {"id": new_id, "name": name, "markdown_filename": md_filename}
+
+
+# ── Endpoint 14: DELETE /admin/companies/{company_id} ─────────────────────────
+
+@router.delete("/companies/{company_id}")
+def admin_delete_company(company_id: int, db: Session = Depends(get_db)):
+    """Delete a company and all its associated data (corrections, context file, datasets)."""
+    row = db.execute(
+        text("SELECT name, markdown_filename FROM companies WHERE id = :id"),
+        {"id": company_id},
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Company not found.")
+
+    company_name, md_filename = row[0], row[1]
+
+    # Delete corrections
+    db.execute(
+        text("DELETE FROM company_specific_corrections WHERE company_id = :id"),
+        {"id": company_id},
+    )
+
+    # Delete company row
+    db.execute(
+        text("DELETE FROM companies WHERE id = :id"),
+        {"id": company_id},
+    )
+
+    db.commit()
+
+    # Delete markdown file
+    if md_filename:
+        md_path = COMPANY_CONTEXT_DIR / md_filename
+        if md_path.exists():
+            md_path.unlink()
+
+    # Delete datasets directory
+    datasets_dir = COMPANY_DATASETS_DIR / company_name
+    if datasets_dir.exists():
+        shutil.rmtree(datasets_dir)
+
+    return {"success": True, "deleted_company": company_name}

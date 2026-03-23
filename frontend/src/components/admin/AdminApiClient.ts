@@ -105,6 +105,29 @@ export async function adminGetCompanyCorrections(id: number): Promise<{ company_
   return handleResponse(res)
 }
 
+export async function adminRenameCompany(id: number, name: string): Promise<{ success: boolean; old_name: string; new_name: string }> {
+  const res = await fetch(`${API_BASE}/admin/companies/${id}/rename`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  return handleResponse(res)
+}
+
+export async function adminCreateCompany(name: string): Promise<{ id: number; name: string; markdown_filename: string }> {
+  const res = await fetch(`${API_BASE}/admin/companies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  return handleResponse(res)
+}
+
+export async function adminDeleteCompany(id: number): Promise<{ success: boolean; deleted_company: string }> {
+  const res = await fetch(`${API_BASE}/admin/companies/${id}`, { method: 'DELETE' })
+  return handleResponse(res)
+}
+
 // ── Reviews ────────────────────────────────────────────────────────────────
 
 export interface AdminReview {
