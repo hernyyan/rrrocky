@@ -95,7 +95,7 @@ PORTFOLIO_COMPANIES = [
 
 # Companies to delete (test data / duplicates)
 DELETE_PATTERNS = [
-    ("name LIKE :v", {"v": "%Acme%"}),
+    ("name ILIKE :v", {"v": "%Acme%"}),
     ("name = :v", {"v": "Business Enterprise Company"}),
     ("name = :v", {"v": "usbid"}),
     ("name = :v", {"v": "US Bid"}),
