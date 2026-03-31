@@ -39,7 +39,7 @@ IS_SECTION_MAP: List[Tuple[Optional[str], List[str]]] = [
 BS_SECTION_HEADERS = {"ASSETS", "LIABILITIES", "EQUITY"}
 
 # Lines to skip entirely
-SKIP_LINES = {"Income Statement", "Balance Sheet", ""}
+SKIP_LINES = {"Income Statement", "Balance Sheet", "Cash Flow Statement", ""}
 
 
 class TemplateService:
@@ -57,21 +57,28 @@ class TemplateService:
             for row in reader:
                 lines.append(row[0].strip() if row else "")
 
-        # Split into IS and BS lines
+        # Split into IS, BS, and CFS lines
         is_lines: List[str] = []
         bs_lines: List[str] = []
-        in_bs = False
+        cfs_lines: List[str] = []
+        section = "is"
 
         for line in lines:
-            if line == "Balance Sheet":
-                in_bs = True
-                continue
             if line == "Income Statement":
+                section = "is"
                 continue
-            if in_bs:
+            if line == "Balance Sheet":
+                section = "bs"
+                continue
+            if line == "Cash Flow Statement":
+                section = "cfs"
+                continue
+            if section == "is":
+                is_lines.append(line)
+            elif section == "bs":
                 bs_lines.append(line)
             else:
-                is_lines.append(line)
+                cfs_lines.append(line)
 
         # Build IS structure using hardcoded section map
         is_all_fields = [l for l in is_lines if l not in SKIP_LINES]
@@ -104,6 +111,10 @@ class TemplateService:
         if current_fields:
             bs_sections.append({"header": current_header, "fields": current_fields})
 
+        # Build CFS structure — flat, no sub-sections
+        cfs_all_fields = [l for l in cfs_lines if l not in SKIP_LINES and l]
+        cfs_sections = [{"header": None, "fields": cfs_all_fields}] if cfs_all_fields else []
+
         return {
             "income_statement": {
                 "sections": is_sections,
@@ -112,6 +123,10 @@ class TemplateService:
             "balance_sheet": {
                 "sections": bs_sections,
                 "allFields": bs_all_fields,
+            },
+            "cash_flow_statement": {
+                "sections": cfs_sections,
+                "allFields": cfs_all_fields,
             },
         }
 
@@ -125,6 +140,7 @@ class TemplateService:
         return {
             "income_statement": {"sections": is_sections, "allFields": is_all_fields},
             "balance_sheet": {"sections": [], "allFields": []},
+            "cash_flow_statement": {"sections": [], "allFields": []},
         }
 
     def get_template_structure(self) -> Dict[str, Any]:
