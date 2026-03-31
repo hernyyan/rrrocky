@@ -46,6 +46,18 @@ The reasoning trace must create a complete chain from every output value back to
 
 All fields default to `null`. Only populate a field if the source data supports it. `null` means unmapped/not reported. `0` means the source explicitly reported zero.
 
+## Calculated Fields — Do Not Populate
+
+The following fields are computed by the system after classification. Do NOT populate them — leave them as `0` in the output. The system will overwrite them anyway.
+
+- Gross Profit
+- EBITDA - Standard
+- Adjusted EBITDA - Standard
+- Net Income (Loss)
+- Adjusted EBITDA - Including Cures
+
+However, if these fields are explicitly reported in the source document (e.g., the source reports its own "Gross Profit" or "Net Income"), record the source-reported value in the REASONING entry for that field under the key `"source_reported_value"`. This is used for cross-checking only.
+
 ## Classification Rules
 
 ### Total Revenue
@@ -58,7 +70,7 @@ Direct costs attributable to the production of goods or delivery of services sol
 
 ### Gross Profit
 
-**Computed:** Total Revenue − COGS. If the source reports Gross Profit directly, verify it matches the computation. If it doesn't, populate both the computed value and flag the discrepancy.
+Leave as `0` — system calculates as Total Revenue − COGS. If the source reports Gross Profit directly, record that value in the REASONING entry under `"source_reported_value"` for cross-checking.
 
 ### Total Operating Expenses
 
@@ -70,7 +82,7 @@ If the source reports Total Operating Expenses directly, use that figure. If it 
 
 ### EBITDA - Standard
 
-**Computed:** Gross Profit − Total Operating Expenses. This is the firm's standardized EBITDA calculation: earnings before interest, taxes, depreciation, amortization, and non-operating items. Verify against the source if the source reports its own EBITDA figure.
+Leave as `0` — system calculates as Gross Profit − Total Operating Expenses. If the source reports its own EBITDA figure, record it in the REASONING entry under `"source_reported_value"` for cross-checking.
 
 ### EBITDA Adjustments
 
@@ -78,7 +90,7 @@ Only populate if the source document explicitly provides EBITDA adjustments. The
 
 ### Adjusted EBITDA - Standard
 
-**Computed:** EBITDA - Standard + EBITDA Adjustments. Only populate if EBITDA Adjustments is populated. Otherwise leave as `null`.
+Leave as `0` — system calculates as EBITDA - Standard + EBITDA Adjustments. If the source reports Adjusted EBITDA directly, record that value in the REASONING entry under `"source_reported_value"` for cross-checking.
 
 ### Depreciation & Amortization
 
@@ -102,9 +114,7 @@ Income tax expense (current + deferred). Report as a positive value.
 
 ### Net Income (Loss)
 
-**Computed:** EBITDA - Standard − Depreciation & Amortization − Interest Expense/(Income) − Other Expense / (Income) − Taxes.
-
-If the source reports Net Income directly, verify it matches this computation. If it doesn't match, populate the computed value and append `__FLAGGED` with the discrepancy noted in reasoning.
+Leave as `0` — system calculates as EBITDA - Standard − Depreciation & Amortization − Interest Expense/(Income) − Other Expense / (Income) − Taxes. If the source reports Net Income directly, record that value in the REASONING entry under `"source_reported_value"` for cross-checking.
 
 ### LTM - Adj EBITDA items
 
@@ -116,7 +126,7 @@ Analyst-populated only. Leave as `null`. Do NOT attempt to calculate or estimate
 
 ### Adjusted EBITDA - Including Cures
 
-Analyst-populated only. Leave as `null`. Do NOT attempt to calculate or estimate.
+Leave as `0` — system calculates from Adjusted EBITDA - Standard + LTM items + Equity Cure. Do NOT populate.
 
 ### Covenant EBITDA
 
@@ -125,16 +135,6 @@ Only populate if the source document explicitly provides Covenant EBITDA (EBITDA
 ## Handling Uncertainty
 
 If a line item from the Layer 1 extraction cannot be confidently classified, assign the value to the most likely template field and append `"__FLAGGED"` to the field name in the output JSON. This signals the item requires human review.
-
-## Vertical Accounting Checks
-
-After populating all fields, verify the following relationships. If any check fails, include a `"VALIDATION"` key in the output JSON listing each failed check with the expected vs. actual values. Allow ±$1 tolerance for rounding.
-
-1. **Gross Profit** = Total Revenue − COGS
-2. **EBITDA - Standard** = Gross Profit − Total Operating Expenses
-3. **Adjusted EBITDA - Standard** = EBITDA - Standard + EBITDA Adjustments (only if Adjustments populated)
-4. **Net Income (Loss)** = EBITDA - Standard − Depreciation & Amortization − Interest Expense/(Income) − Other Expense / (Income) − Taxes
-5. **Cross-check**: If the source reports its own EBITDA, Adjusted EBITDA, or Net Income figure, compare it against the computed value. Flag any discrepancy with both values noted.
 
 ## Company-Specific Classification Rules
 
@@ -148,6 +148,5 @@ If the section above is empty, ignore this section entirely.
 
 Return a single JSON object with the following top-level keys:
 
-1. **Statement data**: The populated template structure shown above with values (numbers or null).
-2. **`"REASONING"`**: A dictionary mapping each populated field name to its reasoning trace string.
-3. **`"VALIDATION"`**: A dictionary mapping each validation check to its result (PASS/FAIL with details). Include all checks, not just failures.
+1. **Statement data**: The populated template structure shown above with values (numbers or null). Calculated fields must be `0`.
+2. **`"REASONING"`**: A dictionary mapping each populated field name to its reasoning trace string. For calculated fields where the source reports a value directly, include `"source_reported_value": <number>` in the reasoning entry.

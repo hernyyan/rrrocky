@@ -4,6 +4,7 @@ import type {
   Layer1Result,
   Layer2Request,
   Layer2Result,
+  CalculationMeta,
   CorrectionRequest,
   FinalizeRequest,
   FinalizeResponse,
@@ -13,6 +14,7 @@ import type {
   CorrectionProcessRequest,
   CorrectionProcessResponse,
   CompanyContextStatus,
+  ISTabConfig,
 } from '../types'
 
 export const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -223,6 +225,36 @@ export async function appendToCompanyDataset(
       reporting_period: reportingPeriod,
       layer1_results: layer1Results,
     }),
+  })
+  await handleResponse<{ success: boolean }>(res)
+}
+
+// POST /recalculate
+export async function recalculate(
+  statementType: string,
+  values: Record<string, number | null>,
+  overrides: Record<string, number> = {},
+): Promise<{ values: Record<string, number | null>; calculationMeta: Record<string, CalculationMeta>; flaggedFields: string[] }> {
+  const res = await fetch(`${API_BASE}/recalculate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ statement_type: statementType, values, overrides }),
+  })
+  return handleResponse(res)
+}
+
+// GET /companies/{id}/is-tab-config
+export async function getISTabConfig(companyId: number): Promise<ISTabConfig> {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/is-tab-config`)
+  return handleResponse(res)
+}
+
+// POST /companies/{id}/is-tab-config
+export async function saveISTabConfig(companyId: number, config: ISTabConfig): Promise<void> {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/is-tab-config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
   })
   await handleResponse<{ success: boolean }>(res)
 }

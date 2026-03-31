@@ -26,8 +26,15 @@ class Layer1Result(BaseModel):
 class Layer1Request(BaseModel):
     sessionId: str
     sheetName: str
-    sheetType: str        # 'income_statement' | 'balance_sheet'
+    sheetType: str        # 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
     reportingPeriod: str
+    fieldsFilter: Optional[List[str]] = None  # if set, only extract these fields
+
+
+class RecalculateRequest(BaseModel):
+    statement_type: str
+    values: Dict[str, Optional[float]]
+    overrides: Dict[str, float] = {}
 
 
 class Layer1Response(BaseModel):
@@ -54,6 +61,8 @@ class Layer2Response(BaseModel):
     validation: Dict[str, ValidationCheck]
     flaggedFields: List[str]
     fieldValidations: Dict[str, List[str]]
+    aiMatchedValues: Dict[str, Optional[float]] = {}
+    calculationMeta: Dict = {}
 
 
 # ─── Upload ───────────────────────────────────────────────────────────────────
