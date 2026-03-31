@@ -9,6 +9,7 @@ interface DataTableRow {
   hasValidationFail?: boolean
   isClickable?: boolean
   isEdited?: boolean
+  isPending?: boolean
   isBold?: boolean
   isIndented?: boolean
   isItalic?: boolean
@@ -82,10 +83,12 @@ export default function DataTable({
 
             const isSelected = selectedCell === row.label
 
-            // Row state priority: selected > flagged > validationFail > edited > normal
+            // Row state priority: selected > pending > flagged > validationFail > edited > normal
             let rowClass = 'border-l-2 border-l-transparent hover:bg-gray-50'
             if (isSelected) {
               rowClass = 'bg-blue-50 border-l-2 border-l-blue-500'
+            } else if (row.isPending) {
+              rowClass = 'bg-amber-50/60 border-l-2 border-l-amber-500 hover:bg-amber-50'
             } else if (row.isFlagged) {
               rowClass = 'bg-amber-50/40 border-l-2 border-l-amber-400 hover:bg-amber-50'
             } else if (row.hasValidationFail) {
@@ -133,13 +136,15 @@ export default function DataTable({
                     className={`font-mono ${
                       row.value === null || row.value === undefined
                         ? 'text-gray-300'
+                        : row.isPending
+                        ? 'text-amber-700'
                         : row.isEdited
                         ? 'text-purple-700'
                         : isNegative
                         ? 'text-red-600'
                         : ''
                     }`}
-                    style={{ fontWeight: row.isEdited ? 500 : 400 }}
+                    style={{ fontWeight: row.isPending || row.isEdited ? 500 : 400 }}
                   >
                     {row.value === null || row.value === undefined
                       ? '—'

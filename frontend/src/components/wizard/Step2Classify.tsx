@@ -4,10 +4,11 @@ import DataTable from '../shared/DataTable'
 import SidePanel from '../shared/SidePanel'
 import LoadingSpinner from '../shared/LoadingSpinner'
 import StatusBanner from '../shared/StatusBanner'
-import { runLayer2, saveCorrection, getTemplate, processCorrections } from '../../api/client'
+import { runLayer2, saveCorrection, getTemplate, processCorrections, recalculate } from '../../api/client'
 import { IS_TEMPLATE_FIELDS, BS_TEMPLATE_FIELDS } from '../../mocks/mockData'
 import { formatFieldValue } from '../../utils/formatters'
-import { BOLD_FIELDS, ITALIC_FIELDS, isIndented } from '../../utils/templateStyling'
+import { BOLD_FIELDS, ITALIC_FIELDS, isIndented, CALCULATED_FIELDS } from '../../utils/templateStyling'
+import { recalculateIS, recalculateBS, recalculateCFS } from '../../utils/recalculate'
 import type { Correction, Layer2Result, TemplateResponse, TemplateSection, CorrectionProcessItem } from '../../types'
 import {
   ArrowLeft,
@@ -51,6 +52,7 @@ function buildTemplateRows(
   layer2: Layer2Result | undefined,
   corrections: Correction[],
   selectedCell: string | null,
+  pendingValues: Record<string, number | null> | null,
 ) {
   type Row = React.ComponentProps<typeof DataTable>['rows'][number]
   const rows: Row[] = []
@@ -63,7 +65,11 @@ function buildTemplateRows(
     }
     for (const field of section.fields) {
       const correction = corrections.find((c) => c.fieldName === field)
-      const rawValue = correction
+      const isPending = pendingValues !== null
+      // Use pending values for live preview (overrides corrections too)
+      const rawValue = isPending
+        ? (pendingValues[field] ?? null)
+        : correction
         ? correction.correctedValue
         : layer2
         ? (layer2.values[field] ?? null)
@@ -74,6 +80,8 @@ function buildTemplateRows(
       const hasValidationFail = fieldChecks.some(
         (checkName) => layer2?.validation[checkName]?.status === 'FAIL',
       )
+      // Highlight the actively-edited field in amber when pending
+      const isBeingEdited = isPending && field === selectedCell
 
       rows.push({
         label: field,
@@ -81,7 +89,8 @@ function buildTemplateRows(
         isFlagged,
         hasValidationFail,
         isClickable: true,
-        isEdited: !!correction,
+        isEdited: isBeingEdited ? false : !!correction,
+        isPending: isBeingEdited,
         isBold: BOLD_FIELDS.has(field),
         isIndented: isIndented(field),
         isItalic: ITALIC_FIELDS.has(field),
@@ -129,6 +138,7 @@ export default function Step2Classify() {
   const [showBackConfirm, setShowBackConfirm] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [approvingStep2, setApprovingStep2] = useState(false)
+  const [pendingValues, setPendingValues] = useState<Record<string, number | null> | null>(null)
   const classifyingRef = useRef(false)
 
   const isLayer2 = layer2Results['income_statement']
@@ -273,9 +283,12 @@ export default function Step2Classify() {
   }
 
   const isAllFields = template?.income_statement.allFields ?? IS_TEMPLATE_FIELDS
-  const selectedCellType: 'income_statement' | 'balance_sheet' | null = selectedCell
+  const cfsAllFields = template?.cash_flow_statement?.allFields ?? []
+  const selectedCellType: 'income_statement' | 'balance_sheet' | 'cash_flow_statement' | null = selectedCell
     ? isAllFields.includes(selectedCell)
       ? 'income_statement'
+      : cfsAllFields.includes(selectedCell)
+      ? 'cash_flow_statement'
       : 'balance_sheet'
     : null
 
@@ -287,8 +300,10 @@ export default function Step2Classify() {
   const isSections = template?.income_statement.sections ?? fallbackIs
   const bsSections = template?.balance_sheet.sections ?? fallbackBs
 
-  const isTemplateRows = buildTemplateRows(isSections, 'Income Statement', isLayer2, corrections, selectedCell)
-  const bsTemplateRows = buildTemplateRows(bsSections, 'Balance Sheet', bsLayer2, corrections, selectedCell)
+  const isPending = selectedCellType === 'income_statement' ? pendingValues : null
+  const bsPending = selectedCellType === 'balance_sheet' ? pendingValues : null
+  const isTemplateRows = buildTemplateRows(isSections, 'Income Statement', isLayer2, corrections, selectedCell, isPending)
+  const bsTemplateRows = buildTemplateRows(bsSections, 'Balance Sheet', bsLayer2, corrections, selectedCell, bsPending)
 
   const isData = layer1Results['income_statement']
   const bsData = layer1Results['balance_sheet']
@@ -310,6 +325,7 @@ export default function Step2Classify() {
   async function handleSaveCorrection(correctionData: Omit<Correction, 'timestamp'>) {
     const correction: Correction = { ...correctionData, timestamp: new Date().toISOString() }
     addCorrection(correction)
+    setPendingValues(null)
 
     // 1. Save correction to reviews table
     try {
@@ -364,7 +380,46 @@ export default function Step2Classify() {
 
   function handleRemoveCorrection(fieldName: string) {
     removeCorrection(fieldName)
+    setPendingValues(null)
     setStatus({ type: 'info', message: `Correction removed for "${fieldName}".` })
+  }
+
+  function handleLiveEdit(fieldName: string, value: number | null, isOverride: boolean) {
+    if (!selectedCellType) return
+    const layer2 = layer2Results[selectedCellType]
+    if (!layer2) return
+
+    const baseValues = { ...layer2.values }
+    // Apply any saved corrections as base
+    for (const c of corrections) {
+      if (c.fieldName in baseValues) {
+        baseValues[c.fieldName] = c.correctedValue
+      }
+    }
+
+    let updated: Record<string, number | null>
+    if (isOverride && value !== null) {
+      // Calculated field override — run with override set
+      const overrides = { [fieldName]: value }
+      if (selectedCellType === 'income_statement') {
+        updated = recalculateIS(baseValues, overrides)
+      } else if (selectedCellType === 'balance_sheet') {
+        updated = recalculateBS(baseValues, overrides)
+      } else {
+        updated = recalculateCFS(baseValues, overrides)
+      }
+    } else {
+      // Matched field direct edit — update field, then recalc downstream
+      const newBase = { ...baseValues, [fieldName]: value }
+      if (selectedCellType === 'income_statement') {
+        updated = recalculateIS(newBase, {})
+      } else if (selectedCellType === 'balance_sheet') {
+        updated = recalculateBS(newBase, {})
+      } else {
+        updated = recalculateCFS(newBase, {})
+      }
+    }
+    setPendingValues(updated)
   }
 
   async function handleApproveStep2() {
@@ -606,9 +661,10 @@ export default function Step2Classify() {
           statementType={selectedCellType}
           layer2Result={activeLayer2}
           existingCorrection={existingCorrection}
-          onClose={() => setSidePanelOpen(false)}
+          onClose={() => { setSidePanelOpen(false); setPendingValues(null) }}
           onSaveCorrection={handleSaveCorrection}
           onRemoveCorrection={handleRemoveCorrection}
+          onLiveEdit={handleLiveEdit}
         />
       </div>
     </div>
