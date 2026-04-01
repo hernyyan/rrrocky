@@ -10,6 +10,7 @@ from app.services.claude_service import ClaudeService, get_claude_service
 PROMPT_MAP = {
     "income_statement": "layer1_income_statement",
     "balance_sheet": "layer1_balance_sheet",
+    "cash_flow_statement": "layer1_cash_flow_statement",
 }
 
 
@@ -24,6 +25,7 @@ class Layer1Service:
         sheet_type: str,
         csv_content: str,
         reporting_period: str,
+        fields_filter: Optional[list] = None,
     ) -> Dict[str, Any]:
         """
         Run Layer 1 extraction on a single sheet.
@@ -49,12 +51,17 @@ class Layer1Service:
         if prompt_key is None:
             raise ValueError(
                 f"Unknown sheet_type '{sheet_type}'. "
-                "Expected 'income_statement' or 'balance_sheet'."
+                "Expected 'income_statement', 'balance_sheet', or 'cash_flow_statement'."
             )
+
+        fields_note = ""
+        if fields_filter:
+            fields_list = ", ".join(f'"{f}"' for f in fields_filter)
+            fields_note = f"\n\nIMPORTANT: Extract ONLY the following fields: {fields_list}. Ignore all other line items."
 
         variables = {
             "reporting_period": reporting_period,
-            "csv_content": csv_content,
+            "csv_content": csv_content + fields_note,
         }
 
         response_text = self.claude.call_claude(prompt_key, variables, model)
