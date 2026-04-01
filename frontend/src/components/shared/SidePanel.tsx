@@ -148,9 +148,23 @@ function CalculatedFieldPanel({
               </div>
             ))}
             <div className="flex justify-between items-center px-3 py-1.5 bg-gray-50">
-              <span className="text-[11px]" style={{ fontWeight: 600 }}>Python Result</span>
+              <span className="text-[11px]" style={{ fontWeight: 600 }}>Calculated Result</span>
               <span className="text-[13px] font-mono" style={{ fontWeight: 600 }}>{fmt(pythonResult)}</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discrepancy detail block */}
+      {matchStatus === 'discrepancy' && aiVal !== null && aiVal !== undefined && (
+        <div className="rounded bg-amber-50 border border-amber-200 px-2 py-1.5 text-[11px] text-amber-700">
+          <p className="flex items-center gap-1" style={{ fontWeight: 600 }}>
+            <AlertTriangle className="w-3 h-3 shrink-0" /> Source reports differently
+          </p>
+          <div className="mt-1 space-y-0.5">
+            <div className="flex justify-between"><span>AI found in source:</span><span className="font-mono">{fmt(aiVal)}</span></div>
+            <div className="flex justify-between"><span>Calculated result:</span><span className="font-mono">{fmt(pythonResult)}</span></div>
+            <div className="flex justify-between"><span>Difference:</span><span className="font-mono">{fmt(Math.abs((pythonResult ?? 0) - aiVal))}</span></div>
           </div>
         </div>
       )}
@@ -165,11 +179,8 @@ function CalculatedFieldPanel({
               <CheckCircle2 className="w-3 h-3" /> Match
             </span>
           )}
-          {matchStatus === 'discrepancy' && aiVal !== null && aiVal !== undefined && (
-            <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
-              <AlertTriangle className="w-3 h-3" />
-              {` Δ${fmt(Math.abs((pythonResult ?? 0) - aiVal))}`}
-            </span>
+          {matchStatus === 'discrepancy' && (
+            <span className="text-[10px] text-amber-600"><AlertTriangle className="w-3 h-3 inline" /></span>
           )}
           {matchStatus === 'not_found_in_source' && (
             <span className="text-[10px] text-muted-foreground">(not in source)</span>
@@ -185,7 +196,7 @@ function CalculatedFieldPanel({
           </p>
           <div className="text-[11px] text-amber-700 space-y-0.5">
             <div className="flex justify-between"><span>Your value:</span><span className="font-mono">{fmt(existingCorrection?.correctedValue)}</span></div>
-            <div className="flex justify-between"><span>Python result:</span><span className="font-mono">{fmt(pythonResult)}</span></div>
+            <div className="flex justify-between"><span>Calculated result:</span><span className="font-mono">{fmt(pythonResult)}</span></div>
             <div className="flex justify-between"><span>Difference:</span><span className="font-mono">{fmt(Math.abs((existingCorrection?.correctedValue ?? 0) - (pythonResult ?? 0)))}</span></div>
           </div>
           <button

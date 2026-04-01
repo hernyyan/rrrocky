@@ -327,6 +327,34 @@ export default function Step2Classify() {
     addCorrection(correction)
     setPendingValues(null)
 
+    // Recompute layer2Results so calculated fields reflect the new correction
+    const stmtType = selectedCellType ?? 'income_statement'
+    const currentL2 = layer2Results[stmtType]
+    if (currentL2) {
+      const baseValues: Record<string, number | null> = { ...currentL2.values }
+      const allCorrections = [
+        ...corrections.filter(c => c.fieldName !== correctionData.fieldName),
+        correction,
+      ]
+      for (const c of allCorrections) {
+        baseValues[c.fieldName] = c.correctedValue
+      }
+      const overrides: Record<string, number> = {}
+      for (const c of allCorrections) {
+        if (c.isOverride && CALCULATED_FIELDS.has(c.fieldName)) {
+          overrides[c.fieldName] = c.correctedValue
+        }
+      }
+      const recalcFn = stmtType === 'income_statement' ? recalculateIS
+        : stmtType === 'balance_sheet' ? recalculateBS
+        : recalculateCFS
+      const recalculated = recalcFn(baseValues, overrides)
+      setLayer2Results({
+        ...layer2Results,
+        [stmtType]: { ...currentL2, values: recalculated },
+      })
+    }
+
     // 1. Save correction to reviews table
     try {
       await saveCorrection({
@@ -381,6 +409,34 @@ export default function Step2Classify() {
   function handleRemoveCorrection(fieldName: string) {
     removeCorrection(fieldName)
     setPendingValues(null)
+
+    // Recompute layer2Results after removal
+    const stmtType = selectedCellType ?? 'income_statement'
+    const currentL2 = layer2Results[stmtType]
+    if (currentL2) {
+      const baseValues: Record<string, number | null> = { ...currentL2.values }
+      const allCorrections = corrections.filter(c => c.fieldName !== fieldName)
+      // Revert removed field to its original AI-matched or backend value
+      baseValues[fieldName] = currentL2.aiMatchedValues?.[fieldName] ?? currentL2.values[fieldName]
+      for (const c of allCorrections) {
+        baseValues[c.fieldName] = c.correctedValue
+      }
+      const overrides: Record<string, number> = {}
+      for (const c of allCorrections) {
+        if (c.isOverride && CALCULATED_FIELDS.has(c.fieldName)) {
+          overrides[c.fieldName] = c.correctedValue
+        }
+      }
+      const recalcFn = stmtType === 'income_statement' ? recalculateIS
+        : stmtType === 'balance_sheet' ? recalculateBS
+        : recalculateCFS
+      const recalculated = recalcFn(baseValues, overrides)
+      setLayer2Results({
+        ...layer2Results,
+        [stmtType]: { ...currentL2, values: recalculated },
+      })
+    }
+
     setStatus({ type: 'info', message: `Correction removed for "${fieldName}".` })
   }
 

@@ -28,6 +28,9 @@ export function recalculateIS(values: Values, overrides: Overrides): Values {
   const adjRaw = values['EBITDA Adjustments']
   if (adjRaw !== null && adjRaw !== undefined) {
     applyCalc(v, overrides, 'Adjusted EBITDA - Standard', ebitda + adjRaw)
+  } else {
+    // Fallback: leave v['Adjusted EBITDA - Standard'] as-is from the input
+    // so the source_matched_fallback value from backend is preserved through recalcs
   }
 
   // Net Income (Loss)
