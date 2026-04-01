@@ -60,6 +60,7 @@ def run_layer1(
             sheet_type=request.sheetType,
             csv_content=csv_content,
             reporting_period=request.reportingPeriod,
+            fields_filter=request.fieldsFilter,
         )
     except FileNotFoundError as e:
         raise HTTPException(status_code=500, detail=str(e))

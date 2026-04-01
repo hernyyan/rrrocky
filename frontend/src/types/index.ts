@@ -21,12 +21,14 @@ export interface WizardState {
   // Step 1 — PDF
   pdfPageCount: number
   pdfUrl: string | null
-  pdfPageAssignments: Record<number, 'income_statement' | 'balance_sheet'>
+  pdfPageAssignments: Record<number, 'income_statement' | 'balance_sheet' | 'cash_flow_statement'>
 
   // Step 2
   layer2Results: Record<string, Layer2Result>
   corrections: Correction[]
   step2Approved: boolean
+  isTabConfig: ISTabConfig | null
+  fieldTabAssignments: Record<string, Record<string, string>>
 
   // Current state
   currentStep: 1 | 2 | 3
@@ -42,6 +44,19 @@ export interface Layer1Result {
   sourceSheet: string
 }
 
+export interface CalculationMeta {
+  type: 'calculated' | 'overridden' | 'source_matched_fallback'
+  formula?: string
+  inputs?: Record<string, number | null>
+  python_result?: number
+  ai_matched_value?: number | null
+  match_status?: 'match' | 'discrepancy' | 'not_found_in_source' | 'n/a'
+  override_value?: number
+  math_ok?: boolean
+  reason?: string
+  readonly?: boolean
+}
+
 export interface Layer2Result {
   statementType: string
   values: Record<string, number | null>
@@ -49,6 +64,8 @@ export interface Layer2Result {
   validation: Record<string, ValidationCheck>
   flaggedFields: string[]
   fieldValidations: Record<string, string[]>
+  aiMatchedValues: Record<string, number | null>
+  calculationMeta: Record<string, CalculationMeta>
 }
 
 export interface ValidationCheck {
@@ -64,6 +81,7 @@ export interface Correction {
   reasoning?: string
   tag: 'one_off_error' | 'company_specific' | 'general_fix'
   timestamp: string
+  isOverride?: boolean
 }
 
 // API Response/Request types
@@ -158,6 +176,13 @@ export interface TemplateStatement {
 export interface TemplateResponse {
   income_statement: TemplateStatement
   balance_sheet: TemplateStatement
+  cash_flow_statement: TemplateStatement
+}
+
+export interface ISTabConfig {
+  multiTab: boolean
+  tabs: string[]
+  fieldAssignments: Record<string, string>
 }
 
 // Company types

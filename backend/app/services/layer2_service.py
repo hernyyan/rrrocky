@@ -19,10 +19,22 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text as sa_text
 from app.config import COMPANY_CONTEXT_DIR
 from app.services.claude_service import ClaudeService, get_claude_service
+from app.services.recalculate_service import (
+    recalculate_income_statement,
+    recalculate_balance_sheet,
+    recalculate_cash_flow_statement,
+)
 
 PROMPT_MAP = {
     "income_statement": "layer2_income_statement",
     "balance_sheet": "layer2_balance_sheet",
+    "cash_flow_statement": "layer2_cash_flow_statement",
+}
+
+_RECALC_FN = {
+    "income_statement": recalculate_income_statement,
+    "balance_sheet": recalculate_balance_sheet,
+    "cash_flow_statement": recalculate_cash_flow_statement,
 }
 
 
@@ -60,7 +72,7 @@ class Layer2Service:
         if prompt_key is None:
             raise ValueError(
                 f"Unknown statement_type '{statement_type}'. "
-                "Expected 'income_statement' or 'balance_sheet'."
+                "Expected 'income_statement', 'balance_sheet', or 'cash_flow_statement'."
             )
 
         # Load company context if toggled on
@@ -75,7 +87,58 @@ class Layer2Service:
 
         response_text = self.claude.call_claude(prompt_key, variables, model, max_tokens=32768)
         parsed = self.claude.parse_json_response(response_text)
-        return self._split_response(parsed, normalized)
+        split = self._split_response(parsed, normalized)
+
+        # Extract source-reported values for calculated fields from reasoning text
+        _CALC_FIELDS = {
+            'Gross Profit', 'EBITDA - Standard', 'Adjusted EBITDA - Standard',
+            'Net Income (Loss)', 'Adjusted EBITDA - Including Cures',
+            'Total Current Assets', 'Total Non-Current Assets', 'Total Assets',
+            'Total Current Liabilities', 'Total Non-Current Liabilities',
+            'Total Liabilities', 'Total Equity', 'Total Liabilities and Equity',
+            'Operating Cash Flow',
+        }
+        import re as _re
+        reasoning = split.get('reasoning', {})
+        for _field in _CALC_FIELDS:
+            if _field in reasoning:
+                _rt = str(reasoning[_field])
+                if 'source_reported_value' in _rt:
+                    _m = _re.search(r'source_reported_value["\s:]+([+-]?[\d,]+(?:\.\d+)?)', _rt)
+                    if _m:
+                        try:
+                            split['values'][_field + '_source_reported'] = float(_m.group(1).replace(',', ''))
+                        except ValueError:
+                            pass
+
+        # Run Python recalculation — overwrite calculated fields, preserve ai_matched
+        recalc_fn = _RECALC_FN.get(normalized)
+        if recalc_fn:
+            ai_matched = dict(split['values'])  # raw AI values before recalc
+            # For calculated fields: use source-reported value if extracted, else None
+            for _field in _CALC_FIELDS:
+                _temp_key = _field + '_source_reported'
+                if _temp_key in ai_matched:
+                    ai_matched[_field] = ai_matched.pop(_temp_key)
+                else:
+                    ai_matched[_field] = None
+                split['values'].pop(_field + '_source_reported', None)
+            recalc = recalc_fn(
+                values=split['values'],
+                ai_matched=ai_matched,
+                overrides={},
+            )
+            split['values'] = recalc['values']
+            split['calculationMeta'] = recalc['calculationMeta']
+            split['aiMatchedValues'] = ai_matched
+            split['flaggedFields'] = list(set(
+                split.get('flaggedFields', []) + recalc['flaggedFields']
+            ))
+        else:
+            split['calculationMeta'] = {}
+            split['aiMatchedValues'] = {}
+
+        return split
 
     def _load_company_context(self, company_id: int, db: Any) -> str:
         """

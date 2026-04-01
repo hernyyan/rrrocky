@@ -66,6 +66,7 @@ export default function Step3Finalize() {
 
   const isLayer2 = layer2Results['income_statement']
   const bsLayer2 = layer2Results['balance_sheet']
+  const cfsLayer2 = layer2Results['cash_flow_statement']
 
   useEffect(() => {
     getTemplate().then(setTemplate).catch(() => {})
@@ -75,21 +76,26 @@ export default function Step3Finalize() {
   const fallbackBs: TemplateSection[] = [{ header: null, fields: BS_TEMPLATE_FIELDS }]
   const isSections: TemplateSection[] = template?.income_statement.sections ?? fallbackIs
   const bsSections: TemplateSection[] = template?.balance_sheet.sections ?? fallbackBs
+  const cfsSections: TemplateSection[] = template?.cash_flow_statement?.sections ?? []
 
   // Build final values: Layer 2 base + corrections applied on top
   function buildFinalValues() {
     const isValues: Record<string, number | null> = { ...(isLayer2?.values ?? {}) }
     const bsValues: Record<string, number | null> = { ...(bsLayer2?.values ?? {}) }
+    const cfsValues: Record<string, number | null> = { ...(cfsLayer2?.values ?? {}) }
     const isFieldNames = new Set(isSections.flatMap((s) => s.fields))
+    const cfsFieldNames = new Set(cfsSections.flatMap((s) => s.fields))
 
     for (const correction of corrections) {
       if (isFieldNames.has(correction.fieldName)) {
         isValues[correction.fieldName] = correction.correctedValue
+      } else if (cfsFieldNames.has(correction.fieldName)) {
+        cfsValues[correction.fieldName] = correction.correctedValue
       } else {
         bsValues[correction.fieldName] = correction.correctedValue
       }
     }
-    return { income_statement: isValues, balance_sheet: bsValues }
+    return { income_statement: isValues, balance_sheet: bsValues, cash_flow_statement: cfsValues }
   }
 
   const finalValues = buildFinalValues()
@@ -97,6 +103,7 @@ export default function Step3Finalize() {
   const allFlaggedFields = new Set([
     ...(isLayer2?.flaggedFields ?? []),
     ...(bsLayer2?.flaggedFields ?? []),
+    ...(cfsLayer2?.flaggedFields ?? []),
   ])
   const allValidationFails = new Set([
     ...Object.entries(isLayer2?.validation ?? {})
@@ -119,6 +126,7 @@ export default function Step3Finalize() {
   const totalPopulated = [
     ...Object.values(finalValues.income_statement),
     ...Object.values(finalValues.balance_sheet),
+    ...Object.values(finalValues.cash_flow_statement),
   ].filter((v) => v !== null).length
 
   const flaggedRemaining = [...allFlaggedFields].filter(
@@ -183,6 +191,31 @@ export default function Step3Finalize() {
           isIndented: isIndented(field),
           isItalic: ITALIC_FIELDS.has(field),
         })
+      }
+    }
+
+    if (cfsSections.length > 0) {
+      rows.push({ label: 'Cash Flow Statement', classifiedValue: null, finalValue: null, isStatementHeader: true })
+      for (const section of cfsSections) {
+        if (section.header) rows.push({ label: section.header, classifiedValue: null, finalValue: null, isHeader: true })
+        for (const field of section.fields) {
+          const rawFinalValue = finalValues.cash_flow_statement[field] ?? null
+          const l2Value = cfsLayer2?.values[field] ?? null
+          const corrected = correctedFieldNames.has(field)
+          const flagged = allFlaggedFields.has(field) && !corrected
+          rows.push({
+            label: field,
+            classifiedValue: l2Value !== null ? formatFieldValue(field, l2Value) : null,
+            finalValue: rawFinalValue !== null ? formatFieldValue(field, rawFinalValue) : null,
+            rawFinalValue,
+            corrected,
+            flagged,
+            validationFail: false,
+            isBold: BOLD_FIELDS.has(field),
+            isIndented: isIndented(field),
+            isItalic: ITALIC_FIELDS.has(field),
+          })
+        }
       }
     }
 

@@ -66,6 +66,26 @@ The reasoning trace must create a complete chain from every output value back to
 
 All fields default to `null`. Only populate a field if the source data supports it. `null` means unmapped/not reported. `0` means the source explicitly reported zero.
 
+## Calculated Fields — Do Not Populate
+
+The following fields are computed by the system after classification. Do NOT populate them — leave them as `0` in the output. The system will overwrite them anyway.
+
+- Total Current Assets
+- Total Non-Current Assets
+- Total Assets
+- Total Current Liabilities
+- Total Non-Current Liabilities
+- Total Liabilities
+- Total Equity
+- Total Liabilities and Equity
+- Check
+
+However, if these fields are explicitly reported in the source document, record the source-reported value in the REASONING entry for that field under the key `"source_reported_value"`. This is used for cross-checking only.
+
+## Accumulated Depreciation Sign Convention
+
+Accumulated Depreciation must always be stored as a **negative value**. If the source reports it as a positive number, negate it in the output.
+
 ## Classification Rules
 
 ### ASSETS
@@ -80,7 +100,7 @@ All fields default to `null`. Only populate a field if the source data supports 
 
 **Other Current Assets**: Catch-all for current assets not captured above. Includes short-term investments, non-trade receivables, restricted cash (current portion), tax receivables, and any other current assets.
 
-**Total Current Assets**: **Computed.** Sum of Cash & Cash Equivalents + Accounts Receivable + Inventory + Prepaid Expenses + Other Current Assets.
+**Total Current Assets**: Leave as `0` — system calculates. If source reports this directly, record in REASONING under `"source_reported_value"`.
 
 **Property, Plant & Equipment**: Tangible long-lived assets — furniture, fixtures, equipment, leasehold improvements, vehicles, machinery. Report at gross value before depreciation.
 
@@ -90,9 +110,9 @@ All fields default to `null`. Only populate a field if the source data supports 
 
 **Other non-current assets**: Catch-all for non-current assets not captured above. Includes long-term investments, deferred tax assets, right-of-use assets, and any other non-current items.
 
-**Total Non-Current Assets**: **Computed.** Property, Plant & Equipment + Accumulated Depreciation + Goodwill & Intangibles + Other non-current assets.
+**Total Non-Current Assets**: Leave as `0` — system calculates. If source reports this directly, record in REASONING under `"source_reported_value"`.
 
-**Total Assets**: **Computed.** Total Current Assets + Total Non-Current Assets.
+**Total Assets**: Leave as `0` — system calculates. If source reports this directly, record in REASONING under `"source_reported_value"`.
 
 ### LIABILITIES
 
@@ -108,7 +128,7 @@ All fields default to `null`. Only populate a field if the source data supports 
 
 **Other Current Liabilities**: Catch-all for current obligations not captured above — sales tax payable, income tax payable, earnout liabilities (current), deferred rent (current), and any other current obligations. Also include any current debt items that don't clearly qualify as Revolver or Current Maturities.
 
-**Total Current Liabilities**: **Computed.** Accounts Payable + Accrued Liabilities + Deferred Revenue + Revolver - Balance Sheet + Current Maturities + Other Current Liabilities.
+**Total Current Liabilities**: Leave as `0` — system calculates. If source reports this directly, record in REASONING under `"source_reported_value"`.
 
 **Long Term Loans**: All borrowings from lenders or financial institutions due beyond 12 months. Includes term loans, senior debt, subordinated debt, seller notes, notes payable, and equipment financing. Debt issuance costs should be netted against Long Term Loans as a negative value (per ASC 835-30). Do NOT include lease liabilities here.
 
@@ -116,9 +136,9 @@ All fields default to `null`. Only populate a field if the source data supports 
 
 **Other Non-Current Liabilities**: Catch-all for non-current obligations not captured above — deferred tax liabilities, deferred rent, deferred management fees, long-term deferred revenue, and any other non-current obligations.
 
-**Total Non-Current Liabilities**: **Computed.** Long Term Loans + Long Term Leases + Other Non-Current Liabilities.
+**Total Non-Current Liabilities**: Leave as `0` — system calculates. If source reports this directly, record in REASONING under `"source_reported_value"`.
 
-**Total Liabilities**: **Computed.** Total Current Liabilities + Total Non-Current Liabilities.
+**Total Liabilities**: Leave as `0` — system calculates. If source reports this directly, record in REASONING under `"source_reported_value"`.
 
 ### EQUITY
 
@@ -128,39 +148,15 @@ All fields default to `null`. Only populate a field if the source data supports 
 
 **Other Equity**: Catch-all for equity components not captured above. Includes preferred stock, common stock, other comprehensive income (OCI), minority/non-controlling interests, treasury stock, and any class-designated equity (Class A, Class B shares). If equity line items reference specific company names or investor names, classify here and append `__FLAGGED`.
 
-**Total Equity**: **Computed.** Paid in Capital + Retained Earnings + Other Equity.
+**Total Equity**: Leave as `0` — system calculates. If source reports this directly, record in REASONING under `"source_reported_value"`.
 
-**Total Liabilities and Equity**: **Computed.** Total Liabilities + Total Equity.
+**Total Liabilities and Equity**: Leave as `0` — system calculates. If source reports this directly, record in REASONING under `"source_reported_value"`.
 
-**Check**: **Computed.** Total Assets − Total Liabilities and Equity. This should always equal 0. Any nonzero value indicates a classification error. If Check ≠ 0, append `__FLAGGED` and note the imbalance in reasoning.
+**Check**: Leave as `0` — system calculates Total Assets − Total Liabilities and Equity. Do NOT populate.
 
 ## Handling Uncertainty
 
 If a line item cannot be confidently classified, assign the value to the most likely template field and append `"__FLAGGED"` to the field name in the output JSON. When in doubt between a named category and "Other," use "Other" and let the human reviewer decide.
-
-## Vertical Accounting Checks
-
-After populating all fields, verify the following. Allow ±$1 tolerance for rounding. Include a `"VALIDATION"` key listing each check with PASS/FAIL and details.
-
-### Assets
-1. **Total Current Assets** = Cash & Cash Equivalents + Accounts Receivable + Inventory + Prepaid Expenses + Other Current Assets
-2. **Total Non-Current Assets** = Property, Plant & Equipment + Accumulated Depreciation + Goodwill & Intangibles + Other non-current assets
-3. **Total Assets** = Total Current Assets + Total Non-Current Assets
-
-### Liabilities
-4. **Total Current Liabilities** = Accounts Payable + Accrued Liabilities + Deferred Revenue + Revolver - Balance Sheet + Current Maturities + Other Current Liabilities
-5. **Total Non-Current Liabilities** = Long Term Loans + Long Term Leases + Other Non-Current Liabilities
-6. **Total Liabilities** = Total Current Liabilities + Total Non-Current Liabilities
-
-### Equity
-7. **Total Equity** = Paid in Capital + Retained Earnings + Other Equity
-
-### Balance
-8. **Total Liabilities and Equity** = Total Liabilities + Total Equity
-9. **Check** = Total Assets − Total Liabilities and Equity = 0
-
-### Cross-Verification
-10. If the source reports its own total for any subtotal field (e.g., Total Current Assets, Total Liabilities), compare against the computed value. Flag any discrepancy.
 
 ## Company-Specific Classification Rules
 
@@ -174,6 +170,5 @@ If the section above is empty, ignore this section entirely.
 
 Return a single JSON object with the following top-level keys:
 
-1. **Statement data**: The populated template structure shown above (ASSETS, LIABILITIES, EQUITY, Total Liabilities and Equity, Check) with values (numbers or null).
-2. **`"REASONING"`**: A dictionary mapping each populated field name to its reasoning trace string.
-3. **`"VALIDATION"`**: A dictionary mapping each validation check to its result (PASS/FAIL with details). Include all checks, not just failures.
+1. **Statement data**: The populated template structure shown above (ASSETS, LIABILITIES, EQUITY, Total Liabilities and Equity, Check) with values (numbers or null). Calculated fields must be `0`.
+2. **`"REASONING"`**: A dictionary mapping each populated field name to its reasoning trace string. For calculated fields where the source reports a value directly, include `"source_reported_value": <number>` in the reasoning entry.
