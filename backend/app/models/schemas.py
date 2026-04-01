@@ -220,6 +220,15 @@ class ReprocessResponse(BaseModel):
 
 # ─── Admin ────────────────────────────────────────────────────────────────────
 
+class ISTabConfigRequest(BaseModel):
+    config: Dict
+
+
+class ISTabConfigResponse(BaseModel):
+    company_id: int
+    config: Dict
+
+
 class AdminContextUpdateRequest(BaseModel):
     content: str
 

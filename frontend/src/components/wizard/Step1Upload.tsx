@@ -4,9 +4,9 @@ import TabSelector from '../shared/TabSelector'
 import ExcelViewer from '../shared/ExcelViewer'
 import PdfPageViewer from '../shared/PdfPageViewer'
 import StatusBanner from '../shared/StatusBanner'
-import { uploadFile, runLayer1, runLayer1Pdf, getCompanies, createCompany, getCompanyContextStatus, checkExistingReview, continuePreviousReview } from '../../api/client'
+import { uploadFile, runLayer1, runLayer1Pdf, getCompanies, createCompany, getCompanyContextStatus, checkExistingReview, continuePreviousReview, getISTabConfig, saveISTabConfig } from '../../api/client'
 import { API_BASE } from '../../api/client'
-import type { Company, CompanyContextStatus, Layer1Result, Layer2Result, Correction } from '../../types'
+import type { Company, CompanyContextStatus, Layer1Result, Layer2Result, Correction, ISTabConfig } from '../../types'
 import {
   Upload,
   Search,
@@ -25,7 +25,7 @@ const approveAudio = new Audio(approveSfx)
 approveAudio.preload = 'auto'
 approveAudio.load()
 
-type SheetType = 'income_statement' | 'balance_sheet' | 'combined'
+type SheetType = 'income_statement' | 'balance_sheet' | 'cash_flow_statement' | 'unassigned'
 
 interface TabState {
   sheetType: SheetType
@@ -35,18 +35,8 @@ interface TabState {
 
 type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
 
-function detectSheetType(name: string): SheetType {
-  const lower = name.toLowerCase()
-  if (
-    lower.includes('income') ||
-    lower.includes('p&l') ||
-    lower.includes('profit') ||
-    lower.includes('pnl') ||
-    lower.includes('revenue')
-  ) {
-    return 'income_statement'
-  }
-  return 'income_statement'  // default to income_statement for unrecognised names
+function detectSheetType(_name: string): SheetType {
+  return 'unassigned'
 }
 
 // Format line item values: negatives as (123,456.78), positives as 123,456.78
@@ -158,6 +148,7 @@ export default function Step1Upload() {
     setPdfPageCount,
     setPdfUrl,
     setPdfPageAssignments,
+    setIsTabConfig,
     approveStep1,
   } = useWizardState()
 
@@ -170,6 +161,15 @@ export default function Step1Upload() {
   const [tabStates, setTabStates] = useState<Record<string, TabState>>({})
   const [contextStatus, setContextStatus] = useState<CompanyContextStatus | null>(null)
   const [contextLoading, setContextLoading] = useState(false)
+
+  // IS tab config local state
+  const [isTabConfigLocal, setIsTabConfigLocal] = useState<ISTabConfig>({
+    multiTab: false,
+    tabs: [],
+    fieldAssignments: {},
+  })
+  const [isTabConfigSaving, setIsTabConfigSaving] = useState(false)
+  const [isTabConfigSaved, setIsTabConfigSaved] = useState(false)
 
   // PDF-specific local state
   const [pdfActiveTab, setPdfActiveTab] = useState<'income_statement' | 'balance_sheet'>('income_statement')
@@ -202,27 +202,6 @@ export default function Step1Upload() {
   function handleTabChange(tab: string) {
     tabScrollPositions.current[activeTab] = tableScrollRef.current?.scrollTop ?? 0
     setActiveSheetTab(tab)
-
-    const destState = tabStates[tab]
-    if (destState && destState.status !== 'done') {
-      const doneSheets = sheetNames.filter((s) => tabStates[s]?.status === 'done')
-      const doneTypes = new Set<SheetType>()
-      for (const s of doneSheets) {
-        const t = tabStates[s].sheetType
-        if (t === 'combined') {
-          doneTypes.add('income_statement')
-          doneTypes.add('balance_sheet')
-        } else {
-          doneTypes.add(t)
-        }
-      }
-      const isOnly = (t: SheetType) => doneTypes.has(t) && !doneTypes.has(t === 'income_statement' ? 'balance_sheet' : 'income_statement')
-      if (isOnly('income_statement')) {
-        setTabStates((prev) => ({ ...prev, [tab]: { ...prev[tab], sheetType: 'balance_sheet' } }))
-      } else if (isOnly('balance_sheet')) {
-        setTabStates((prev) => ({ ...prev, [tab]: { ...prev[tab], sheetType: 'income_statement' } }))
-      }
-    }
   }
 
   useEffect(() => {
@@ -240,6 +219,17 @@ export default function Step1Upload() {
       .catch(() => {})
       .finally(() => setCompaniesLoading(false))
   }, [])
+
+  // Load IS tab config when company is selected
+  useEffect(() => {
+    if (!companyId) return
+    getISTabConfig(companyId)
+      .then((cfg) => {
+        setIsTabConfigLocal(cfg)
+        setIsTabConfig(cfg)
+      })
+      .catch(() => {})
+  }, [companyId])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -323,25 +313,25 @@ export default function Step1Upload() {
   }
 
   const activeTabState = tabStates[activeTab]
-  const isCombinedTab = activeTabState?.sheetType === 'combined'
-  const activeLayer1 = isCombinedTab ? undefined : layer1Results[tabStates[activeTab]?.sheetType]
-  const combinedIS = isCombinedTab ? layer1Results['income_statement'] : undefined
-  const combinedBS = isCombinedTab ? layer1Results['balance_sheet'] : undefined
+  const activeLayer1 = layer1Results[tabStates[activeTab]?.sheetType]
 
   // Approve requires at least one statement extracted
   const extractedIS = uploadFileType === 'pdf'
     ? !!layer1Results['income_statement']
     : sheetNames.some(
-        (s) => tabStates[s]?.status === 'done' &&
-          (tabStates[s]?.sheetType === 'income_statement' || tabStates[s]?.sheetType === 'combined'),
+        (s) => tabStates[s]?.status === 'done' && tabStates[s]?.sheetType === 'income_statement',
       )
   const extractedBS = uploadFileType === 'pdf'
     ? !!layer1Results['balance_sheet']
     : sheetNames.some(
-        (s) => tabStates[s]?.status === 'done' &&
-          (tabStates[s]?.sheetType === 'balance_sheet' || tabStates[s]?.sheetType === 'combined'),
+        (s) => tabStates[s]?.status === 'done' && tabStates[s]?.sheetType === 'balance_sheet',
       )
-  const canApprove = extractedIS || extractedBS
+  const extractedCFS = uploadFileType === 'pdf'
+    ? !!layer1Results['cash_flow_statement']
+    : sheetNames.some(
+        (s) => tabStates[s]?.status === 'done' && tabStates[s]?.sheetType === 'cash_flow_statement',
+      )
+  const canApprove = extractedIS || extractedBS || extractedCFS
 
   const extractedSheetNames = sheetNames.filter((s) => tabStates[s]?.status === 'done')
 
@@ -445,6 +435,26 @@ export default function Step1Upload() {
     }))
   }
 
+  async function handleSaveIsTabConfig() {
+    if (!companyId) return
+    setIsTabConfigSaving(true)
+    try {
+      await saveISTabConfig(companyId, isTabConfigLocal)
+      setIsTabConfig(isTabConfigLocal)
+      setIsTabConfigSaved(true)
+      setTimeout(() => setIsTabConfigSaved(false), 2000)
+    } catch {
+      setStatus({ type: 'error', message: 'Failed to save IS tab config.' })
+    } finally {
+      setIsTabConfigSaving(false)
+    }
+  }
+
+  // IS tabs among currently uploaded sheets
+  const isAssignedTabs = sheetNames.filter(
+    (s) => tabStates[s]?.sheetType === 'income_statement',
+  )
+
   function handlePdfPageClick(pageNumber: number) {
     const current = pdfPageAssignments[pageNumber]
     const newAssignments = { ...pdfPageAssignments }
@@ -529,78 +539,37 @@ export default function Step1Upload() {
     }))
     setStatus(null)
 
-    if (tabState.sheetType === 'combined') {
-      const [isResult, bsResult] = await Promise.allSettled([
-        runLayer1(sessionId, tabName, 'income_statement', reportingPeriod),
-        runLayer1(sessionId, tabName, 'balance_sheet', reportingPeriod),
-      ])
+    if (tabState.sheetType === 'unassigned') {
+      setTabStates((prev) => ({
+        ...prev,
+        [tabName]: { ...prev[tabName], status: 'idle' },
+      }))
+      setStatus({ type: 'error', message: 'Please assign a statement type before running extraction.' })
+      return
+    }
 
-      const errors: string[] = []
-
-      if (isResult.status === 'fulfilled') {
-        mergeLayer1Result('income_statement', {
-          lineItems: isResult.value.lineItems,
-          sourceScaling: isResult.value.sourceScaling,
-          columnIdentified: isResult.value.columnIdentified,
-          sourceSheet: tabName,
-        })
-      } else {
-        errors.push(`IS: ${(isResult.reason as Error)?.message ?? 'failed'}`)
-      }
-
-      if (bsResult.status === 'fulfilled') {
-        mergeLayer1Result('balance_sheet', {
-          lineItems: bsResult.value.lineItems,
-          sourceScaling: bsResult.value.sourceScaling,
-          columnIdentified: bsResult.value.columnIdentified,
-          sourceSheet: tabName,
-        })
-      } else {
-        errors.push(`BS: ${(bsResult.reason as Error)?.message ?? 'failed'}`)
-      }
-
-      if (errors.length > 0 && errors.length < 2) {
-        setTabStates((prev) => ({
-          ...prev,
-          [tabName]: { ...prev[tabName], status: 'done' },
-        }))
-        setStatus({ type: 'info', message: `Partial extraction: ${errors.join('; ')}` })
-      } else if (errors.length === 2) {
-        setTabStates((prev) => ({
-          ...prev,
-          [tabName]: { ...prev[tabName], status: 'error', error: errors.join('; ') },
-        }))
-        setStatus({ type: 'error', message: `Extraction failed: ${errors.join('; ')}` })
-      } else {
-        setTabStates((prev) => ({
-          ...prev,
-          [tabName]: { ...prev[tabName], status: 'done' },
-        }))
-      }
-    } else {
-      try {
-        const result = await runLayer1(sessionId, tabName, tabState.sheetType, reportingPeriod)
-        mergeLayer1Result(tabState.sheetType, {
-          lineItems: result.lineItems,
-          sourceScaling: result.sourceScaling,
-          columnIdentified: result.columnIdentified,
-          sourceSheet: tabName,
-        })
-        setTabStates((prev) => ({
-          ...prev,
-          [tabName]: { ...prev[tabName], status: 'done' },
-        }))
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Extraction failed.'
-        setTabStates((prev) => ({
-          ...prev,
-          [tabName]: { ...prev[tabName], status: 'error', error: message },
-        }))
-        setStatus({
-          type: 'error',
-          message: `Extraction failed for "${tabName}": ${message}`,
-        })
-      }
+    try {
+      const result = await runLayer1(sessionId, tabName, tabState.sheetType, reportingPeriod)
+      mergeLayer1Result(tabState.sheetType, {
+        lineItems: result.lineItems,
+        sourceScaling: result.sourceScaling,
+        columnIdentified: result.columnIdentified,
+        sourceSheet: tabName,
+      })
+      setTabStates((prev) => ({
+        ...prev,
+        [tabName]: { ...prev[tabName], status: 'done' },
+      }))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Extraction failed.'
+      setTabStates((prev) => ({
+        ...prev,
+        [tabName]: { ...prev[tabName], status: 'error', error: message },
+      }))
+      setStatus({
+        type: 'error',
+        message: `Extraction failed for "${tabName}": ${message}`,
+      })
     }
   }
 
@@ -968,23 +937,9 @@ export default function Step1Upload() {
               <div className="flex-1 flex items-center justify-center text-muted-foreground">
                 <p className="text-[13px]">Upload a file to begin extraction</p>
               </div>
-            ) : activeTabState?.status === 'done' && (activeLayer1 || isCombinedTab) ? (
+            ) : activeTabState?.status === 'done' && activeLayer1 ? (
               <div className="flex-1 overflow-auto p-4">
-                {isCombinedTab ? (
-                  <div className="space-y-5">
-                    {([
-                      { label: 'Income Statement', result: combinedIS },
-                      { label: 'Balance Sheet', result: combinedBS },
-                    ] as { label: string; result: Layer1Result | undefined }[]).map(
-                      ({ label, result }) =>
-                        result ? (
-                          <Layer1ResultsTable key={label} result={result} label={label} />
-                        ) : null,
-                    )}
-                  </div>
-                ) : activeLayer1 ? (
-                  <Layer1ResultsTable result={activeLayer1} />
-                ) : null}
+                <Layer1ResultsTable result={activeLayer1} />
               </div>
             ) : activeTabState?.status === 'extracting' ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-3">
@@ -1019,19 +974,96 @@ export default function Step1Upload() {
                       disabled={!hasUpload}
                       className="w-full bg-white border border-border rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                     >
+                      <option value="unassigned">-- Unassigned --</option>
                       <option value="income_statement">Income Statement</option>
                       <option value="balance_sheet">Balance Sheet</option>
-                      <option value="combined">Both (IS + BS)</option>
+                      <option value="cash_flow_statement">Cash Flow Statement</option>
                     </select>
                   </div>
                   <button
                     onClick={() => handleRunExtraction(activeTab)}
-                    disabled={!hasUpload}
+                    disabled={!hasUpload || activeTabState?.sheetType === 'unassigned'}
                     className="w-full py-2 rounded-lg text-[13px] transition-colors disabled:opacity-50"
                     style={{ backgroundColor: '#030213', color: 'white', fontWeight: 500 }}
                   >
                     Run Extraction
                   </button>
+
+                  {/* Multi-tab IS Config */}
+                  {hasUpload && companyId && isAssignedTabs.length > 0 && (
+                    <div className="border border-border rounded-lg p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[12px] text-muted-foreground" style={{ fontWeight: 500 }}>
+                          Multi-tab Income Statement
+                        </label>
+                        <button
+                          onClick={() =>
+                            setIsTabConfigLocal((prev) => ({
+                              ...prev,
+                              multiTab: !prev.multiTab,
+                              tabs: !prev.multiTab ? isAssignedTabs : [],
+                            }))
+                          }
+                          className={`relative w-8 h-[18px] rounded-full transition-colors ${
+                            isTabConfigLocal.multiTab ? 'bg-blue-500' : 'bg-gray-300'
+                          }`}
+                        >
+                          <div
+                            className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-transform ${
+                              isTabConfigLocal.multiTab ? 'left-[17px]' : 'left-[2px]'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {isTabConfigLocal.multiTab && (
+                        <>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground mb-1.5">IS tabs:</p>
+                            <div className="space-y-1">
+                              {isAssignedTabs.map((tab) => {
+                                const included = isTabConfigLocal.tabs.includes(tab)
+                                return (
+                                  <label
+                                    key={tab}
+                                    className="flex items-center gap-2 text-[12px] cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={included}
+                                      onChange={() =>
+                                        setIsTabConfigLocal((prev) => ({
+                                          ...prev,
+                                          tabs: included
+                                            ? prev.tabs.filter((t) => t !== tab)
+                                            : [...prev.tabs, tab],
+                                        }))
+                                      }
+                                      className="w-3 h-3"
+                                    />
+                                    <span className="truncate">{tab}</span>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      <button
+                        onClick={handleSaveIsTabConfig}
+                        disabled={isTabConfigSaving || !companyId}
+                        className="w-full py-1.5 rounded-lg text-[12px] transition-colors border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
+                        style={{ fontWeight: 500 }}
+                      >
+                        {isTabConfigSaving
+                          ? 'Saving...'
+                          : isTabConfigSaved
+                          ? 'Saved!'
+                          : 'Save IS Config'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

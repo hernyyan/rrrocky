@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, Check, X, Edit3, Loader2 } from 'lucide-react'
 import { adminGetCompanyContext, adminGetCompanyData, adminGetCompanyCorrections, adminRenameCompany, AdminCompanyContext, CompanyPeriodData, AdminCorrection } from './AdminApiClient'
+import { getISTabConfig } from '../../api/client'
+import type { ISTabConfig } from '../../types'
 import CompanyContextEditor from './CompanyContextEditor'
 import TemplateFieldList from './TemplateFieldList'
 import RuleWriter from './RuleWriter'
@@ -11,7 +13,7 @@ interface Props {
   onBack: () => void
 }
 
-type Tab = 'data' | 'corrections' | 'datasets'
+type Tab = 'data' | 'corrections' | 'datasets' | 'is_config'
 
 function formatVal(v: unknown): string {
   if (v === null || v === undefined) return '—'
@@ -29,6 +31,7 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
   const [contextContent, setContextContent] = useState<string>('')
   const [periods, setPeriods] = useState<CompanyPeriodData[]>([])
   const [corrections, setCorrections] = useState<AdminCorrection[]>([])
+  const [isTabConfig, setIsTabConfigState] = useState<ISTabConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('data')
   const [selectedField, setSelectedField] = useState<{ name: string; statementType: string } | null>(null)
@@ -45,11 +48,13 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
       adminGetCompanyContext(companyId),
       adminGetCompanyData(companyId),
       adminGetCompanyCorrections(companyId),
-    ]).then(([ctx, data, corr]) => {
+      getISTabConfig(companyId).catch(() => null),
+    ]).then(([ctx, data, corr, tabCfg]) => {
       setContext(ctx)
       setContextContent(ctx.content ?? '')
       setPeriods(data.periods)
       setCorrections(corr.corrections)
+      setIsTabConfigState(tabCfg as ISTabConfig | null)
     }).catch(console.error).finally(() => setLoading(false))
   }, [companyId])
 
@@ -90,6 +95,7 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
     { key: 'data', label: 'L1 / L2 Data' },
     { key: 'corrections', label: `Corrections (${corrections.length})` },
     { key: 'datasets', label: 'Datasets' },
+    { key: 'is_config', label: 'IS Config' },
   ]
 
   return (
@@ -259,6 +265,72 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
                       <span className="text-muted-foreground ml-auto">{p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}</span>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+          {activeTab === 'is_config' && (
+            <div className="h-full overflow-auto p-4">
+              {!isTabConfig || !isTabConfig.multiTab ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-[11px]" style={{ fontWeight: 500 }}>
+                      Single-tab
+                    </span>
+                    <span className="text-[12px] text-muted-foreground">
+                      No multi-tab IS config set for this company.
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[11px]" style={{ fontWeight: 500 }}>
+                      Multi-tab enabled
+                    </span>
+                  </div>
+
+                  {isTabConfig.tabs.length > 0 && (
+                    <div>
+                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase" style={{ fontWeight: 600, letterSpacing: '0.05em' }}>
+                        IS Tabs
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {isTabConfig.tabs.map((tab) => (
+                          <span
+                            key={tab}
+                            className="px-2 py-0.5 rounded border border-border text-[12px] bg-white"
+                          >
+                            {tab}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {Object.keys(isTabConfig.fieldAssignments).length > 0 && (
+                    <div>
+                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase" style={{ fontWeight: 600, letterSpacing: '0.05em' }}>
+                        Field Assignments
+                      </p>
+                      <table className="text-[12px] border-collapse w-full max-w-lg">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-border">
+                            <th className="text-left px-3 py-1.5 text-muted-foreground" style={{ fontWeight: 500 }}>Field</th>
+                            <th className="text-left px-3 py-1.5 text-muted-foreground" style={{ fontWeight: 500 }}>Tab</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(isTabConfig.fieldAssignments).map(([field, tab]) => (
+                            <tr key={field} className="border-b border-gray-100">
+                              <td className="px-3 py-1.5">{field}</td>
+                              <td className="px-3 py-1.5 text-muted-foreground">{tab}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
