@@ -1,0 +1,76 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required for OIDC login
+  contents: read
+
+jobs:
+  deploy-frontend:
+    name: Build & Deploy Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to ACR
+        run: az acr login --name saopacr
+
+      - name: Build and push image
+        run: |
+          IMAGE=saopacr.azurecr.io/financials-parser-frontend:${{ github.sha }}
+          docker build -t $IMAGE ./frontend
+          docker push $IMAGE
+
+      - name: Deploy to Container App
+        run: |
+          az containerapp update \
+            --name financials-parser-frontend \
+            --resource-group SAOP_Portal \
+            --image saopacr.azurecr.io/financials-parser-frontend:${{ github.sha }} \
+            --revision-suffix sha-${GITHUB_SHA::7}
+
+  deploy-backend:
+    name: Build & Deploy Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to ACR
+        run: az acr login --name saopacr
+
+      - name: Build and push image
+        run: |
+          IMAGE=saopacr.azurecr.io/financials-parser-backend:${{ github.sha }}
+          docker build -t $IMAGE ./backend
+          docker push $IMAGE
+
+      - name: Deploy to Container App
+        run: |
+          az containerapp update \
+            --name financials-parser-backend \
+            --resource-group SAOP_Portal \
+            --image saopacr.azurecr.io/financials-parser-backend:${{ github.sha }} \
+            --revision-suffix sha-${GITHUB_SHA::7}
