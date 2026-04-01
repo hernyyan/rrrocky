@@ -143,6 +143,7 @@ export default function Step2Classify() {
 
   const isLayer2 = layer2Results['income_statement']
   const bsLayer2 = layer2Results['balance_sheet']
+  const cfsLayer2 = layer2Results['cash_flow_statement']
   const isClassifying = isStatus === 'loading' || bsStatus === 'loading'
 
   // Tick elapsed seconds while classification is running
@@ -302,13 +303,20 @@ export default function Step2Classify() {
 
   const isPending = selectedCellType === 'income_statement' ? pendingValues : null
   const bsPending = selectedCellType === 'balance_sheet' ? pendingValues : null
+  const cfsPending = selectedCellType === 'cash_flow_statement' ? pendingValues : null
   const isTemplateRows = buildTemplateRows(isSections, 'Income Statement', isLayer2, corrections, selectedCell, isPending)
   const bsTemplateRows = buildTemplateRows(bsSections, 'Balance Sheet', bsLayer2, corrections, selectedCell, bsPending)
+  const cfsSections = template?.cash_flow_statement?.sections ?? []
+  const cfsTemplateRows = cfsSections.length > 0
+    ? buildTemplateRows(cfsSections, 'Cash Flow Statement', cfsLayer2, corrections, selectedCell, cfsPending)
+    : []
 
   const isData = layer1Results['income_statement']
   const bsData = layer1Results['balance_sheet']
+  const cfsData = layer1Results['cash_flow_statement']
   const sourceIsRows = isData ? buildSourceRows({ [isData.sourceSheet]: isData }) : []
   const sourceBsRows = bsData ? buildSourceRows({ [bsData.sourceSheet]: bsData }) : []
+  const sourceCfsRows = cfsData ? buildSourceRows({ [cfsData.sourceSheet]: cfsData }) : []
 
   const existingCorrection = selectedCell
     ? corrections.find((c) => c.fieldName === selectedCell)
@@ -320,6 +328,7 @@ export default function Step2Classify() {
   const flaggedCount = [
     ...(isLayer2?.flaggedFields ?? []),
     ...(bsLayer2?.flaggedFields ?? []),
+    ...(cfsLayer2?.flaggedFields ?? []),
   ].length
 
   async function handleSaveCorrection(correctionData: Omit<Correction, 'timestamp'>) {
@@ -633,7 +642,7 @@ export default function Step2Classify() {
           style={{ width: sidePanelOpen ? '28%' : '38%' }}
         >
           <div className="px-4 py-2 border-b border-border bg-gray-50 shrink-0">
-            <p className="text-[12px] text-muted-foreground" style={{ fontWeight: 500 }}>
+            <p style={{ fontSize: 14, fontWeight: 600 }}>
               Source Data (Extracted)
             </p>
           </div>
@@ -646,6 +655,7 @@ export default function Step2Classify() {
               <>
                 <DataTable rows={sourceIsRows} noScroll stmtHeaderStyle="gray" />
                 <DataTable rows={sourceBsRows} noScroll stmtHeaderStyle="gray" />
+                <DataTable rows={sourceCfsRows} noScroll stmtHeaderStyle="gray" />
               </>
             )}
           </div>
@@ -654,8 +664,8 @@ export default function Step2Classify() {
         {/* Right: Classified template */}
         <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
           <div className="px-4 py-2 border-b border-border bg-gray-50 shrink-0 flex items-center justify-between">
-            <p className="text-[12px] text-muted-foreground" style={{ fontWeight: 500 }}>
-              Classified Template
+            <p style={{ fontSize: 14, fontWeight: 600 }}>
+              Loader Template
             </p>
             {hasAnyResults && !isClassifying && (
               <p className="text-[11px] text-muted-foreground">Click any row to inspect / correct</p>
@@ -705,6 +715,14 @@ export default function Step2Classify() {
                     selectedCell={selectedCell}
                   />
                 )}
+                {cfsTemplateRows.length > 0 && (
+                  <DataTable
+                    rows={cfsTemplateRows}
+                    noScroll
+                    onCellClick={setSelectedCell}
+                    selectedCell={selectedCell}
+                  />
+                )}
               </>
             )}
           </div>
@@ -717,6 +735,7 @@ export default function Step2Classify() {
           statementType={selectedCellType}
           layer2Result={activeLayer2}
           existingCorrection={existingCorrection}
+          sourceSheet={selectedCellType ? (layer1Results[selectedCellType]?.sourceSheet ?? null) : null}
           onClose={() => { setSidePanelOpen(false); setPendingValues(null) }}
           onSaveCorrection={handleSaveCorrection}
           onRemoveCorrection={handleRemoveCorrection}

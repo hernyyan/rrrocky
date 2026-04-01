@@ -24,6 +24,7 @@ interface SidePanelProps {
   onSaveCorrection: (correction: Omit<Correction, 'timestamp'>) => void
   onRemoveCorrection: (fieldName: string) => void
   onLiveEdit?: (fieldName: string, value: number | null, isOverride: boolean) => void
+  sourceSheet?: string | null
 }
 
 const TAG_OPTIONS: { value: Correction['tag']; label: string; description: string }[] = [
@@ -293,6 +294,7 @@ export default function SidePanel({
   statementType,
   layer2Result,
   existingCorrection,
+  sourceSheet,
   onClose,
   onSaveCorrection,
   onRemoveCorrection,
@@ -405,6 +407,11 @@ export default function SidePanel({
               </span>
             )}
           </div>
+          {sourceSheet && (
+            <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+              Source: {sourceSheet}
+            </p>
+          )}
         </div>
         <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded transition-colors mt-0.5">
           <X className="w-4 h-4" />
