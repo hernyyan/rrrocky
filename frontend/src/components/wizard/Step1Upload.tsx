@@ -274,7 +274,7 @@ export default function Step1Upload() {
   const [leftPct, setLeftPct] = useState(65)
 
   // PDF-specific local state
-  const [pdfActiveTab, setPdfActiveTab] = useState<'income_statement' | 'balance_sheet'>('income_statement')
+  const [pdfActiveTab, setPdfActiveTab] = useState<'income_statement' | 'balance_sheet' | 'cash_flow_statement'>('income_statement')
   const [pdfExtracting, setPdfExtracting] = useState<Record<string, boolean>>({})
 
   // Company combobox state
@@ -612,10 +612,10 @@ export default function Step1Upload() {
       .sort((a, b) => a - b)
 
     if (pages.length === 0) {
-      setStatus({
-        type: 'error',
-        message: `No pages selected for ${pdfActiveTab === 'income_statement' ? 'Income Statement' : 'Balance Sheet'}.`,
-      })
+      const stmtLabel = pdfActiveTab === 'income_statement' ? 'Income Statement'
+        : pdfActiveTab === 'balance_sheet' ? 'Balance Sheet'
+        : 'Cash Flow Statement'
+      setStatus({ type: 'error', message: `No pages selected for ${stmtLabel}.` })
       return
     }
 
@@ -1067,18 +1067,23 @@ export default function Step1Upload() {
           /* PDF extraction panel — unchanged */
           <div className="flex-1 flex flex-col min-w-[320px] max-w-[420px]">
             <TabSelector
-              tabs={['Income Statement', 'Balance Sheet']}
+              tabs={['Income Statement', 'Balance Sheet', 'Cash Flow Statement']}
               activeTab={
-                pdfActiveTab === 'income_statement' ? 'Income Statement' : 'Balance Sheet'
+                pdfActiveTab === 'income_statement' ? 'Income Statement'
+                  : pdfActiveTab === 'balance_sheet' ? 'Balance Sheet'
+                  : 'Cash Flow Statement'
               }
               onChange={(tab) =>
                 setPdfActiveTab(
-                  tab === 'Income Statement' ? 'income_statement' : 'balance_sheet',
+                  tab === 'Income Statement' ? 'income_statement'
+                    : tab === 'Balance Sheet' ? 'balance_sheet'
+                    : 'cash_flow_statement',
                 )
               }
               extractedTabs={[
                 ...(layer1Results['income_statement'] ? ['Income Statement'] : []),
                 ...(layer1Results['balance_sheet'] ? ['Balance Sheet'] : []),
+                ...(layer1Results['cash_flow_statement'] ? ['Cash Flow Statement'] : []),
               ]}
               smallText
             />
@@ -1099,7 +1104,9 @@ export default function Step1Upload() {
                 <div className="space-y-4">
                   <p className="text-[12px] text-muted-foreground">
                     Select pages from the PDF that contain the{' '}
-                    {pdfActiveTab === 'income_statement' ? 'Income Statement' : 'Balance Sheet'},
+                    {pdfActiveTab === 'income_statement' ? 'Income Statement'
+                      : pdfActiveTab === 'balance_sheet' ? 'Balance Sheet'
+                      : 'Cash Flow Statement'},
                     then run extraction.
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -1112,7 +1119,9 @@ export default function Step1Upload() {
                           className={`px-2 py-0.5 rounded text-[11px] ${
                             pdfActiveTab === 'income_statement'
                               ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : pdfActiveTab === 'balance_sheet'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-purple-50 text-purple-700 border border-purple-200'
                           }`}
                           style={{ fontWeight: 500 }}
                         >

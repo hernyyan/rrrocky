@@ -12,8 +12,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 interface PdfPageViewerProps {
   pdfUrl: string | null
   pageCount: number
-  pageAssignments: Record<number, 'income_statement' | 'balance_sheet'>
-  activeStatementTab: 'income_statement' | 'balance_sheet'
+  pageAssignments: Record<number, 'income_statement' | 'balance_sheet' | 'cash_flow_statement'>
+  activeStatementTab: 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
   onPageClick: (pageNumber: number) => void
 }
 
@@ -112,6 +112,9 @@ export default function PdfPageViewer({
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" /> Balance Sheet
         </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm bg-purple-500 inline-block" /> Cash Flow Statement
+        </span>
       </div>
 
       {/* Main area: thumbnail sidebar + main view */}
@@ -133,15 +136,19 @@ export default function PdfPageViewer({
                 ? 'border-blue-500'
                 : assignment === 'balance_sheet'
                   ? 'border-emerald-500'
-                  : isActive
-                    ? 'border-gray-400'
-                    : 'border-gray-200'
+                  : assignment === 'cash_flow_statement'
+                    ? 'border-purple-500'
+                    : isActive
+                      ? 'border-gray-400'
+                      : 'border-gray-200'
 
               return (
                 <div
                   key={pageNum}
                   ref={(el) => { thumbnailRefs.current[pageNum] = el }}
-                  className="flex flex-col items-center cursor-pointer"
+                  className={`flex flex-col items-center cursor-pointer rounded px-1 py-1 transition-colors ${
+                    isActive ? 'bg-blue-100' : 'hover:bg-gray-100'
+                  }`}
                   onClick={() => scrollMainToPage(pageNum)}
                 >
                   <div
@@ -162,7 +169,9 @@ export default function PdfPageViewer({
                           ? 'bg-blue-500 border-blue-500 hover:ring-blue-300'
                           : assignment === 'balance_sheet'
                             ? 'bg-emerald-500 border-emerald-500 hover:ring-emerald-300'
-                            : 'bg-white border-gray-300 hover:ring-gray-300'
+                            : assignment === 'cash_flow_statement'
+                              ? 'bg-purple-500 border-purple-500 hover:ring-purple-300'
+                              : 'bg-white border-gray-300 hover:ring-gray-300'
                       }`}
                       onClick={(e) => { e.stopPropagation(); onPageClick(pageNum) }}
                     >
@@ -210,7 +219,9 @@ export default function PdfPageViewer({
                       ? 'ring-2 ring-blue-400'
                       : assignment === 'balance_sheet'
                         ? 'ring-2 ring-emerald-400'
-                        : ''
+                        : assignment === 'cash_flow_statement'
+                          ? 'ring-2 ring-purple-400'
+                          : ''
                   }`}
                 >
                   <Page
@@ -226,7 +237,9 @@ export default function PdfPageViewer({
                         ? 'bg-blue-500 border-blue-500 hover:ring-blue-300'
                         : assignment === 'balance_sheet'
                           ? 'bg-emerald-500 border-emerald-500 hover:ring-emerald-300'
-                          : 'bg-white border-gray-300 hover:ring-gray-300'
+                          : assignment === 'cash_flow_statement'
+                            ? 'bg-purple-500 border-purple-500 hover:ring-purple-300'
+                            : 'bg-white border-gray-300 hover:ring-gray-300'
                     }`}
                     onClick={(e) => { e.stopPropagation(); onPageClick(pageNum) }}
                   >
@@ -241,11 +254,15 @@ export default function PdfPageViewer({
                     {assignment && (
                       <span
                         className={`px-1.5 py-0.5 rounded text-[10px] text-white ${
-                          assignment === 'income_statement' ? 'bg-blue-500' : 'bg-emerald-500'
+                          assignment === 'income_statement' ? 'bg-blue-500'
+                            : assignment === 'balance_sheet' ? 'bg-emerald-500'
+                            : 'bg-purple-500'
                         }`}
                         style={{ fontWeight: 600 }}
                       >
-                        {assignment === 'income_statement' ? 'IS' : 'BS'}
+                        {assignment === 'income_statement' ? 'IS'
+                          : assignment === 'balance_sheet' ? 'BS'
+                          : 'CFS'}
                       </span>
                     )}
                     <span className="px-1.5 py-0.5 rounded bg-black/50 text-white text-[10px]">
