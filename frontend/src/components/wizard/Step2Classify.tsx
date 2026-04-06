@@ -132,8 +132,10 @@ export default function Step2Classify() {
 
   const [isStatus, setIsStatus] = useState<RunStatus>('idle')
   const [bsStatus, setBsStatus] = useState<RunStatus>('idle')
+  const [cfsStatus, setCfsStatus] = useState<RunStatus>('idle')
   const [isError, setIsError] = useState<string | null>(null)
   const [bsError, setBsError] = useState<string | null>(null)
+  const [cfsError, setCfsError] = useState<string | null>(null)
   const [template, setTemplate] = useState<TemplateResponse | null>(null)
   const [status, setStatus] = useState<StatusMessage>(null)
   const [showBackConfirm, setShowBackConfirm] = useState(false)
@@ -145,7 +147,7 @@ export default function Step2Classify() {
   const isLayer2 = layer2Results['income_statement']
   const bsLayer2 = layer2Results['balance_sheet']
   const cfsLayer2 = layer2Results['cash_flow_statement']
-  const isClassifying = isStatus === 'loading' || bsStatus === 'loading'
+  const isClassifying = isStatus === 'loading' || bsStatus === 'loading' || cfsStatus === 'loading'
 
   // Tick elapsed seconds while classification is running
   useEffect(() => {
@@ -158,10 +160,11 @@ export default function Step2Classify() {
     return () => clearInterval(interval)
   }, [isClassifying])
 
-  const hasBothResults = !!isLayer2 && !!bsLayer2
+  const hasBothResults = !!isLayer2 && !!bsLayer2 &&
+    (!layer1Results['cash_flow_statement'] || !!cfsLayer2)
   const hasAnyResults = !!isLayer2 || !!bsLayer2
-  const allSettled = isStatus !== 'loading' && bsStatus !== 'loading'
-  const hasAnyError = isStatus === 'error' || bsStatus === 'error'
+  const allSettled = isStatus !== 'loading' && bsStatus !== 'loading' && cfsStatus !== 'loading'
+  const hasAnyError = isStatus === 'error' || bsStatus === 'error' || cfsStatus === 'error'
 
   useEffect(() => {
     getTemplate().then(setTemplate).catch(() => {})
@@ -182,6 +185,7 @@ export default function Step2Classify() {
     if (hasBothResults) {
       setIsStatus('done')
       setBsStatus('done')
+      setCfsStatus('done')
       return
     }
     runClassification()
@@ -196,6 +200,7 @@ export default function Step2Classify() {
     classifyingRef.current = true
     setIsError(null)
     setBsError(null)
+    setCfsError(null)
     setStatus(null)
 
     const newResults: Record<string, Layer2Result> = { ...layer2Results }
@@ -265,6 +270,29 @@ export default function Step2Classify() {
       console.log('[Step2] BS: skipped (bsStatus already done)')
     }
 
+    if (layer1Results['cash_flow_statement'] && cfsStatus !== 'done') {
+      setCfsStatus('loading')
+      tasks.push(
+        runLayer2({
+          session_id: sessionId,
+          statement_type: 'cash_flow_statement',
+          layer1_data: layer1Results['cash_flow_statement'].lineItems,
+          company_id: companyId,
+          use_company_context: useCompanyContext,
+        })
+          .then((result) => {
+            newResults['cash_flow_statement'] = result
+            setCfsStatus('done')
+          })
+          .catch((err) => {
+            setCfsStatus('error')
+            setCfsError(err instanceof Error ? err.message : 'Cash flow statement classification failed.')
+          }),
+      )
+    } else if (!layer1Results['cash_flow_statement']) {
+      setCfsStatus('done')
+    }
+
     console.log('[Step2] waiting for', tasks.length, 'task(s) to settle')
     await Promise.allSettled(tasks)
     console.log('[Step2] all tasks settled — newResults keys:', Object.keys(newResults), 'layer2Results keys (closure):', Object.keys(layer2Results))
@@ -281,6 +309,7 @@ export default function Step2Classify() {
 
   function handleRetry() {
     classifyingRef.current = false
+    setCfsStatus('idle')
     runClassification()
   }
 
@@ -536,6 +565,21 @@ export default function Step2Classify() {
                 </p>
               </div>
             </div>
+            {layer1Results['cash_flow_statement'] && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-border">
+                {cfsStatus === 'done' ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                ) : (
+                  <Loader2 className="w-5 h-5 text-primary animate-spin shrink-0" />
+                )}
+                <div>
+                  <p className="text-[13px]" style={{ fontWeight: 500 }}>Cash Flow Statement</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {cfsStatus === 'done' ? 'Classification complete' : 'Classifying line items...'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -683,6 +727,7 @@ export default function Step2Classify() {
                 <p className="text-[13px] text-red-600" style={{ fontWeight: 500 }}>Classification failed</p>
                 {isError && <p className="text-[12px] text-red-500">Income Statement: {isError}</p>}
                 {bsError && <p className="text-[12px] text-red-500">Balance Sheet: {bsError}</p>}
+                {cfsError && <p className="text-[12px] text-red-500">Cash Flow Statement: {cfsError}</p>}
                 <button
                   onClick={handleRetry}
                   className="mt-2 text-[13px] bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
