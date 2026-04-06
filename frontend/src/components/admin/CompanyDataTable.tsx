@@ -92,7 +92,7 @@ export default function CompanyDataTable({ periods }: Props) {
   let labels: string[] = []
   if (view === 'l2' && template) {
     // Use template field order for L2
-    for (const stmt of ['income_statement', 'balance_sheet'] as const) {
+    for (const stmt of ['income_statement', 'balance_sheet', 'cash_flow_statement'] as const) {
       for (const section of template[stmt]?.sections ?? []) {
         for (const field of section.fields) {
           if (!labels.includes(field)) labels.push(field)
@@ -124,9 +124,11 @@ export default function CompanyDataTable({ periods }: Props) {
     }
     const is = (data as Record<string, unknown>).income_statement as Record<string, unknown> | undefined
     const bs = (data as Record<string, unknown>).balance_sheet as Record<string, unknown> | undefined
+    const cfs = (data as Record<string, unknown>).cash_flow_statement as Record<string, unknown> | undefined
     const isVals = is?.values as Record<string, unknown> | undefined
     const bsVals = bs?.values as Record<string, unknown> | undefined
-    return isVals?.[label] ?? bsVals?.[label] ?? null
+    const cfsVals = cfs?.values as Record<string, unknown> | undefined
+    return isVals?.[label] ?? bsVals?.[label] ?? cfsVals?.[label] ?? null
   }
 
   return (
