@@ -27,13 +27,16 @@ def finalize_output(request: FinalizeRequest, db: Session = Depends(get_db)):
     template_svc = get_template_service()
     is_fields = template_svc.get_field_order("income_statement")
     bs_fields = template_svc.get_field_order("balance_sheet")
+    cfs_fields = template_svc.get_field_order("cash_flow_statement")
 
     is_raw = request.finalValues.get("income_statement", {})
     bs_raw = request.finalValues.get("balance_sheet", {})
+    cfs_raw = request.finalValues.get("cash_flow_statement", {})
 
     final_output = {
         "Income Statement": {f: is_raw.get(f) for f in is_fields if f in is_raw},
         "Balance Sheet": {f: bs_raw.get(f) for f in bs_fields if f in bs_raw},
+        "Cash Flow Statement": {f: cfs_raw.get(f) for f in cfs_fields if f in cfs_raw},
     }
 
     corrections_json = json.dumps([c.model_dump() for c in request.corrections])

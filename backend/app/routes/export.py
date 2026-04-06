@@ -38,8 +38,11 @@ def get_export(session_id: str, db: Session = Depends(get_db)):
             detail=f"Session '{session_id}' not found or not yet finalized.",
         )
 
-    final_output: dict = json.loads(row.final_output or "{}")
-    corrections: list = json.loads(row.corrections or "[]")
+    raw_final = row.final_output
+    final_output: dict = raw_final if isinstance(raw_final, dict) else json.loads(raw_final or "{}")
+
+    raw_corrections = row.corrections
+    corrections: list = raw_corrections if isinstance(raw_corrections, list) else json.loads(raw_corrections or "[]")
     corrected_fields = {c.get("fieldName", "") for c in corrections}
 
     template_svc = get_template_service()
