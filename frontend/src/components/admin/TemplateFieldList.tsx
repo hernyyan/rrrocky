@@ -22,9 +22,10 @@ export default function TemplateFieldList({ contextContent, selectedField, onSel
 
   if (!template) return <div className="p-3 text-[12px] text-muted-foreground">Loading template...</div>
 
-  const statements: { key: 'income_statement' | 'balance_sheet'; label: string }[] = [
+  const statements: { key: 'income_statement' | 'balance_sheet' | 'cash_flow_statement'; label: string }[] = [
     { key: 'income_statement', label: 'Income Statement' },
     { key: 'balance_sheet', label: 'Balance Sheet' },
+    { key: 'cash_flow_statement', label: 'Cash Flow Statement' },
   ]
 
   return (
