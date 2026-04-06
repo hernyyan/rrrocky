@@ -375,27 +375,29 @@ def admin_export_review(session_id: str, db: Session = Depends(get_db)):
 
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Field Name", "Value", "Status"])
+    # NO header row
 
     for stmt_label, stmt_key in [
         ("Income Statement", "income_statement"),
         ("Balance Sheet", "balance_sheet"),
+        ("Cash Flow Statement", "cash_flow_statement"),
     ]:
-        writer.writerow([stmt_label, "", ""])
-        sections = template_svc.template.get(stmt_key, {}).get("sections", [])
         stmt_values: dict = final_output.get(stmt_label, {})
+        if not stmt_values:
+            continue
+
+        writer.writerow([stmt_label, ""])
+        sections = template_svc.template.get(stmt_key, {}).get("sections", [])
 
         for section in sections:
             header = section.get("header")
             if header:
-                writer.writerow([header, "", ""])
+                writer.writerow([header, ""])
             for field in section.get("fields", []):
                 value = stmt_values.get(field)
                 value_str = f"{value:.2f}" if value is not None else ""
-                status = "corrected" if field in corrected_fields else ""
-                writer.writerow([field, value_str, status])
-
-        writer.writerow(["", "", ""])
+                writer.writerow([field, value_str])
+            writer.writerow(["", ""])  # blank row after each section
 
     safe_company = re.sub(r"[^\w\s-]", "", company_name).strip().replace(" ", "_")
     safe_period = re.sub(r"[^\w\s-]", "", reporting_period).strip().replace(" ", "_")
