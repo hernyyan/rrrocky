@@ -70,9 +70,17 @@ The markdown file is organized by template sections in the following order. If a
 ### Equity
 (instructions about Paid in Capital, Retained Earnings, Other Equity)
 
+## Cash Flow Statement
+
+### Operating Activities
+(instructions about Operating Cash Flow (Working Capital), Operating Cash Flow (Non-Working Capital), Operating Cash Flow)
+
+### Investing and Financing
+(instructions about Investing Cash Flow, Financing Cash Flow, CAPEX)
+
 Each instruction within a section is a bullet point (- ). If instructions relate to each other, they can be grouped under the same bullet or as sub-bullets. Keep it clean and scannable.
 
-Use the `referenced_fields` array to determine which section an instruction belongs in. If an instruction references fields from multiple sections (e.g., a rule about reclassifying something from Current Liabilities to Non-Current Liabilities), place it in the section of the **correct destination field**.
+Use the `referenced_fields` array to determine which section an instruction belongs in. If an instruction references fields from multiple sections (e.g., a rule about reclassifying something from Current Liabilities to Non-Current Liabilities), place it in the section of the **correct destination field**. Cash Flow Statement fields (Operating Cash Flow (Working Capital), Operating Cash Flow (Non-Working Capital), Operating Cash Flow, Investing Cash Flow, Financing Cash Flow, CAPEX) route to the appropriate CFS subsection.
 
 ## Output
 
