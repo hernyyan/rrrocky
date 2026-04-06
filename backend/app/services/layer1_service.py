@@ -10,6 +10,7 @@ from app.services.claude_service import ClaudeService, get_claude_service
 PROMPT_MAP = {
     "income_statement": "layer1_income_statement",
     "balance_sheet": "layer1_balance_sheet",
+    "cash_flow_statement": "layer1_cash_flow_statement",
 }
 
 
@@ -24,23 +25,8 @@ class Layer1Service:
         sheet_type: str,
         csv_content: str,
         reporting_period: str,
+        fields_filter: Optional[list] = None,
     ) -> Dict[str, Any]:
-        """
-        Run Layer 1 extraction on a single sheet.
-
-        Args:
-            sheet_type: 'income_statement' or 'balance_sheet'
-            csv_content: Raw CSV string of the sheet (from openpyxl conversion)
-            reporting_period: e.g. 'March 2024'
-
-        Returns:
-            Dict with keys: lineItems, sourceScaling, columnIdentified
-
-        Raises:
-            FileNotFoundError: If the prompt file is missing.
-            ValueError: If the Claude response cannot be parsed.
-            anthropic.APIError: On API failures.
-        """
         model = os.getenv("LAYER1_MODEL", "claude-sonnet-4-6")
 
         normalized = sheet_type.lower().replace(" ", "_")
@@ -49,12 +35,17 @@ class Layer1Service:
         if prompt_key is None:
             raise ValueError(
                 f"Unknown sheet_type '{sheet_type}'. "
-                "Expected 'income_statement' or 'balance_sheet'."
+                "Expected 'income_statement', 'balance_sheet', or 'cash_flow_statement'."
             )
+
+        fields_note = ""
+        if fields_filter:
+            fields_list = ", ".join(f'"{f}"' for f in fields_filter)
+            fields_note = f"\n\nIMPORTANT: Extract ONLY the following fields: {fields_list}. Ignore all other line items."
 
         variables = {
             "reporting_period": reporting_period,
-            "csv_content": csv_content,
+            "csv_content": csv_content + fields_note,
         }
 
         response_text = self.claude.call_claude(prompt_key, variables, model)
@@ -62,16 +53,6 @@ class Layer1Service:
         return self._parse(raw)
 
     def _parse(self, raw: Any) -> Dict[str, Any]:
-        """
-        Normalise the raw Layer 1 JSON from Claude into the API response shape.
-
-        Expected Claude output:
-        {
-          "line_items": { "Label": value, ... },
-          "source_scaling": "actual_dollars",
-          "column_identified": "03/31/2024"
-        }
-        """
         if not isinstance(raw, dict):
             raise ValueError(
                 f"Layer 1: expected a JSON object, got {type(raw).__name__}."
@@ -86,7 +67,7 @@ class Layer1Service:
             try:
                 clean_items[str(label)] = float(value)
             except (TypeError, ValueError):
-                continue  # Skip non-numeric values
+                continue
 
         return {
             "lineItems": clean_items,
