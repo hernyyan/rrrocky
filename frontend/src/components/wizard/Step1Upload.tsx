@@ -78,6 +78,8 @@ const CFS_FIELDS = [
 ]
 const CFS_BOLD = new Set(['Operating Cash Flow', 'Investing Cash Flow', 'Financing Cash Flow'])
 
+const FIELDS = { income_statement: IS_FIELDS, balance_sheet: BS_FIELDS, cash_flow_statement: CFS_FIELDS }
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 function formatLineItemValue(value: number): string {
@@ -193,12 +195,11 @@ function FieldAssignmentTable({
                 {field}
               </span>
               <select
-                value={assignments[field] ?? ''}
+                value={assignments[field] ?? checkedTabs[0] ?? ''}
                 onChange={(e) => onChange(field, e.target.value)}
                 className="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white focus:outline-none"
                 style={{ minWidth: 120 }}
               >
-                <option value="">— pick tab —</option>
                 {checkedTabs.map((tab) => (
                   <option key={tab} value={tab}>{tab}</option>
                 ))}
@@ -700,12 +701,12 @@ export default function Step1Upload() {
         // Multi-tab: run once per unique tab with fields_filter for that tab
         const tabFieldMap: Record<string, string[]> = {}
         const perFieldAssignments = fieldAssignments[stmtType] ?? {}
-        for (const [field, tab] of Object.entries(perFieldAssignments)) {
+        const defaultTab = tabs[0]
+        const allFields = FIELDS[stmtType as keyof typeof FIELDS] ?? []
+        for (const field of allFields) {
+          const tab = perFieldAssignments[field] ?? defaultTab
           if (!tabFieldMap[tab]) tabFieldMap[tab] = []
           tabFieldMap[tab].push(field)
-        }
-        for (const tab of tabs) {
-          if (!tabFieldMap[tab]) tabFieldMap[tab] = []
         }
 
         const perTabResults: Record<string, Record<string, number>> = {}
