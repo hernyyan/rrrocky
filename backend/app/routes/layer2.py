@@ -63,7 +63,13 @@ def run_layer2(request: Layer2Request, db: Session = Depends(get_db)):
                 text("SELECT layer2_data FROM reviews WHERE session_id = :sid"),
                 {"sid": request.session_id},
             ).fetchone()
-            existing_data = json.loads(row[0]) if row and row[0] else {}
+            raw = row[0] if row else None
+            if raw is None:
+                existing_data = {}
+            elif isinstance(raw, dict):
+                existing_data = raw
+            else:
+                existing_data = json.loads(raw)
             existing_data[request.statement_type] = result
             db.execute(
                 text("UPDATE reviews SET layer2_data = :data WHERE session_id = :sid"),
