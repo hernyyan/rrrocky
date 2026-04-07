@@ -94,7 +94,13 @@ def run_layer1(
             {"sid": request.sessionId},
         ).fetchone()
 
-        existing = json.loads(row[0]) if row and row[0] else {}
+        raw = row[0] if row else None
+        if raw is None:
+            existing = {}
+        elif isinstance(raw, dict):
+            existing = raw
+        else:
+            existing = json.loads(raw)
         existing[request.sheetName] = result
         db.execute(
             text("UPDATE reviews SET layer1_data = :data WHERE session_id = :sid"),
