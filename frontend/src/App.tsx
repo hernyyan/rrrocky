@@ -11,7 +11,7 @@ function App() {
         <Route path="/admin-portal/*" element={<AdminPortal />} />
         <Route path="*" element={
           <WizardProvider>
-            <div className="h-screen flex flex-col bg-white overflow-hidden">
+            <div className="h-screen flex flex-col bg-background overflow-hidden">
               <Header />
               <main className="flex-1 flex flex-col overflow-hidden">
                 <WizardShell />

@@ -37,7 +37,7 @@ export default function AdminPortal() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       <AdminHeader />
       <div className="flex flex-1 min-h-0">
         <AdminSidebar active={section} onChange={handleSectionChange} />

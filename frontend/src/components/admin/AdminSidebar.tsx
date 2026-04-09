@@ -25,7 +25,7 @@ export default function AdminSidebar({ active, onChange }: Props) {
             onClick={() => onChange(id)}
             className={`w-full flex items-center gap-2.5 px-4 py-2 text-[13px] text-left transition-colors ${
               active === id
-                ? 'bg-white border-l-2 border-blue-500 text-foreground'
+                ? 'bg-background border-l-2 border-primary text-foreground'
                 : 'border-l-2 border-transparent text-muted-foreground hover:bg-gray-100'
             }`}
             style={{ fontWeight: active === id ? 500 : 400 }}
