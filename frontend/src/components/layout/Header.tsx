@@ -7,26 +7,29 @@ export default function Header() {
   const { companyName, reportingPeriod, currentStep } = useWizardState()
 
   return (
-    <div className="border-b border-border bg-background shrink-0">
-      <div className="flex items-center justify-between px-5 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#1a3728' }}>
-            <PiggyBank className="w-5 h-5 text-amber-400" />
-          </div>
-          <span className="text-[17px] tracking-tight" style={{ fontWeight: 600 }}>Henry Jr</span>
+    <div className="border-b border-[#e2e8f0] bg-white shrink-0">
+      <div className="flex items-center justify-between px-6 py-3">
+        <div className="flex items-center gap-2">
+          <PiggyBank className="w-4 h-4 text-[#1a1f35]" />
+          <span className="text-[15px] tracking-[-0.5px] text-[#1a1f35]" style={{ fontWeight: 600 }}>
+            Henry Jr
+          </span>
         </div>
-        <div className="flex items-center gap-4 text-[13px] text-muted-foreground">
+        <div className="flex items-center gap-4">
           {companyName && (
-            <span className="bg-secondary px-2.5 py-1 rounded-md" style={{ fontWeight: 500, color: 'var(--secondary-foreground)' }}>
+            <span className="text-[10px] uppercase tracking-[1.5px] text-[#64748b] flex items-center gap-1.5">
+              <span className="text-[#e2e8f0]">◆</span>
               {companyName}
             </span>
           )}
           {reportingPeriod && (
-            <span className="bg-secondary px-2.5 py-1 rounded-md" style={{ color: 'var(--secondary-foreground)' }}>{reportingPeriod}</span>
+            <span className="text-[10px] uppercase tracking-[1.5px] text-[#94a3b8]">
+              {reportingPeriod}
+            </span>
           )}
         </div>
       </div>
-      <div className="flex items-center px-5 pb-0">
+      <div className="flex items-center px-6 pb-0">
         {STEPS.map((step, i) => {
           const stepNum = i + 1
           const isActive = stepNum === currentStep
@@ -36,31 +39,27 @@ export default function Header() {
               key={step}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
                 isComplete
-                  ? 'border-emerald-500 text-emerald-700'
-                  : !isActive
-                  ? 'border-transparent text-muted-foreground'
-                  : ''
+                  ? 'border-[#065f46] text-[#065f46]'
+                  : isActive
+                  ? 'border-[#1a1f35] text-[#1a1f35]'
+                  : 'border-transparent text-[#94a3b8]'
               }`}
-              style={isActive ? { borderBottomColor: 'var(--primary)', color: 'var(--primary)' } : {}}
             >
               <div
                 className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] shrink-0 ${
                   isComplete
-                    ? 'bg-emerald-500 text-white'
-                    : !isActive
-                    ? 'bg-muted text-muted-foreground'
-                    : ''
+                    ? 'bg-[#065f46] text-white'
+                    : isActive
+                    ? 'bg-[#1a1f35] text-white'
+                    : 'bg-[#f1f5f9] text-[#94a3b8]'
                 }`}
-                style={{
-                  fontWeight: 600,
-                  ...(isActive ? { backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' } : {}),
-                }}
+                style={{ fontWeight: 600 }}
               >
                 {isComplete ? <Check className="w-3 h-3" /> : stepNum}
               </div>
               <span
-                className="text-[13px] whitespace-nowrap"
-                style={{ fontWeight: isActive ? 500 : 400 }}
+                className="text-[12px] whitespace-nowrap"
+                style={{ fontWeight: isActive ? 600 : 400 }}
               >
                 {step}
               </span>
