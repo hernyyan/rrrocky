@@ -153,6 +153,9 @@ export const MOCK_LAYER2_INCOME_STATEMENT: Layer2Result = {
       details: '-$942,385.19 = -$930,275.34 - $12,109.85',
     },
   },
+  aiMatchedValues: {},
+  calculationMeta: {},
+  sourceLabels: {},
   flaggedFields: [],
   fieldValidations: {
     'Total Revenue': ['Check 1 - Total Revenue = Net Revenue'],
@@ -239,6 +242,9 @@ export const MOCK_LAYER2_BALANCE_SHEET: Layer2Result = {
         'Expected: $100,000 + $4,250,000 + (-$950,038.64) = $3,399,961.36. Source shows $3,399,961.36. Minor rounding discrepancy detected.',
     },
   },
+  aiMatchedValues: {},
+  calculationMeta: {},
+  sourceLabels: {},
   flaggedFields: [],
   fieldValidations: {
     'Total Assets': ['Check BS-1 - Total Assets = Total Liabilities + Total Equity'],

@@ -63,6 +63,7 @@ class Layer2Response(BaseModel):
     fieldValidations: Dict[str, List[str]]
     aiMatchedValues: Dict[str, Optional[float]] = {}
     calculationMeta: Dict = {}
+    sourceLabels: Dict[str, List[str]] = {}
 
 
 # ─── Upload ───────────────────────────────────────────────────────────────────

@@ -187,6 +187,7 @@ class Layer2Service:
 
         reasoning: Dict[str, str] = {}
         validation_raw: Dict[str, Any] = {}
+        source_labels: Dict[str, List[str]] = {}
         values: Dict[str, Optional[float]] = {}
         flagged_fields: List[str] = []
 
@@ -194,6 +195,12 @@ class Layer2Service:
             if key == "REASONING":
                 if isinstance(val, dict):
                     reasoning = {str(k): str(v) for k, v in val.items()}
+            elif key == "SOURCE_LABELS":
+                if isinstance(val, dict):
+                    source_labels = {
+                        str(k): [str(lbl) for lbl in v] if isinstance(v, list) else [str(v)]
+                        for k, v in val.items()
+                    }
             elif key == "VALIDATION":
                 if isinstance(val, dict):
                     validation_raw = val
@@ -244,6 +251,7 @@ class Layer2Service:
             "validation": structured_validation,
             "flaggedFields": flagged_fields,
             "fieldValidations": field_validations,
+            "sourceLabels": source_labels,
         }
 
     def _map_validations_to_fields(

@@ -172,3 +172,12 @@ Return a single JSON object with the following top-level keys:
 
 1. **Statement data**: The populated template structure shown above (ASSETS, LIABILITIES, EQUITY, Total Liabilities and Equity, Check) with values (numbers or null). Calculated fields must be `0`.
 2. **`"REASONING"`**: A dictionary mapping each populated field name to its reasoning trace string. For calculated fields where the source reports a value directly, include `"source_reported_value": <number>` in the reasoning entry.
+3. **`"SOURCE_LABELS"`**: A dictionary mapping each populated template field name to an array of exact Layer 1 source line item label strings that were used to populate it. Follow these rules:
+
+   - For **matched fields**: list every Layer 1 label whose value was mapped to this field. If a single source line maps directly, the array has one entry. If multiple source lines were summed, list all of them.
+   - For **calculated fields** (fields you were told to leave as 0): list the Layer 1 source labels of the matched fields that are the direct inputs to the formula. For example, for Total Current Assets, list the source labels that fed Cash & Cash Equivalents, Accounts Receivable, Inventory, etc.
+   - For **null fields** (not populated): omit entirely from SOURCE_LABELS.
+   - Use the **exact label strings** as they appear in the Layer 1 input — do not rename, normalize, or paraphrase them.
+   - If a field was populated by summing source lines, list all contributing source labels even if there are many.
+
+   Note: SOURCE_LABELS for calculated fields should be the union of the source labels of all their matched inputs, recursively. For Total Assets (calculated from Total Current Assets + Total Non-Current Assets), list all source labels that ultimately fed into it.
