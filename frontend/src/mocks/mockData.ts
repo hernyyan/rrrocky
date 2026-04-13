@@ -155,6 +155,7 @@ export const MOCK_LAYER2_INCOME_STATEMENT: Layer2Result = {
   },
   aiMatchedValues: {},
   calculationMeta: {},
+  sourceLabels: {},
   flaggedFields: [],
   fieldValidations: {
     'Total Revenue': ['Check 1 - Total Revenue = Net Revenue'],
@@ -243,6 +244,7 @@ export const MOCK_LAYER2_BALANCE_SHEET: Layer2Result = {
   },
   aiMatchedValues: {},
   calculationMeta: {},
+  sourceLabels: {},
   flaggedFields: [],
   fieldValidations: {
     'Total Assets': ['Check BS-1 - Total Assets = Total Liabilities + Total Equity'],

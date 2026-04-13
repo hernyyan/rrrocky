@@ -72,3 +72,9 @@ Return a single JSON object with the following top-level keys:
 
 1. **Statement data**: The populated template structure shown above with values (numbers or null). `Operating Cash Flow` must be `0`.
 2. **`"REASONING"`**: A dictionary mapping each populated field name to its reasoning trace string. For `Operating Cash Flow`, include `"source_reported_value"` if the source reports it directly.
+3. **`"SOURCE_LABELS"`**: A dictionary mapping each populated template field name to an array of exact Layer 1 source line item label strings that were used to populate it. Follow these rules:
+
+   - For **matched fields**: list every Layer 1 label whose value was mapped to this field. If multiple source lines were summed, list all of them.
+   - For **calculated fields** (Operating Cash Flow): list the Layer 1 source labels of the matched fields that are the direct inputs — i.e., the union of the source labels for Operating Cash Flow (Working Capital) and Operating Cash Flow (Non-Working Capital).
+   - For **null fields** (not populated): omit entirely from SOURCE_LABELS.
+   - Use the **exact label strings** as they appear in the Layer 1 input — do not rename, normalize, or paraphrase them.

@@ -354,30 +354,10 @@ export default function Step2Classify() {
 
   // Compute which source line item labels map to the selected template field
   const relevantSourceLabels: Set<string> = (() => {
-    if (!selectedCell || !activeLayer2 || !selectedCellType) return new Set()
-    const sourceData = layer1Results[selectedCellType]
-    if (!sourceData) return new Set()
-    const labels = new Set<string>()
-    const meta = activeLayer2.calculationMeta?.[selectedCell]
-    if (meta?.inputs && Object.keys(meta.inputs).length > 0) {
-      // Calculated field: match each input field's aiMatchedValue to source rows
-      for (const inputField of Object.keys(meta.inputs)) {
-        const aiVal = activeLayer2.aiMatchedValues?.[inputField]
-        if (aiVal === null || aiVal === undefined) continue
-        for (const [label, value] of Object.entries(sourceData.lineItems)) {
-          if (Math.abs(value - aiVal) < 0.5) labels.add(label)
-        }
-      }
-    } else {
-      // Matched field: find source row whose value equals aiMatchedValues[field]
-      const aiVal = activeLayer2.aiMatchedValues?.[selectedCell]
-      if (aiVal !== null && aiVal !== undefined) {
-        for (const [label, value] of Object.entries(sourceData.lineItems)) {
-          if (Math.abs(value - aiVal) < 0.5) labels.add(label)
-        }
-      }
-    }
-    return labels
+    if (!selectedCell || !activeLayer2) return new Set()
+    const labels = activeLayer2.sourceLabels?.[selectedCell]
+    if (labels && labels.length > 0) return new Set(labels)
+    return new Set()
   })()
 
   const allValidation = { ...(isLayer2?.validation ?? {}), ...(bsLayer2?.validation ?? {}) }

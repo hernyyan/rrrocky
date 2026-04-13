@@ -66,6 +66,7 @@ export interface Layer2Result {
   fieldValidations: Record<string, string[]>
   aiMatchedValues: Record<string, number | null>
   calculationMeta: Record<string, CalculationMeta>
+  sourceLabels: Record<string, string[]>
 }
 
 export interface ValidationCheck {
