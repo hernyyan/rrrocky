@@ -258,6 +258,7 @@ export default function Step1Upload() {
   const splitContainerRef = useRef<HTMLDivElement>(null)
 
   const [uploading, setUploading] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
   const [status, setStatus] = useState<StatusMessage>(null)
   const [contextStatus, setContextStatus] = useState<CompanyContextStatus | null>(null)
   const [contextLoading, setContextLoading] = useState(false)
@@ -503,10 +504,7 @@ export default function Step1Upload() {
 
   // ── File upload ─────────────────────────────────────────────────────────
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+  async function handleFileUpload(file: File) {
     const isPdf = file.name.toLowerCase().endsWith('.pdf')
 
     setUploading(true)
@@ -560,8 +558,42 @@ export default function Step1Upload() {
       })
     } finally {
       setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
     }
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    await handleFileUpload(file)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false)
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (!file) return
+    const name = file.name.toLowerCase()
+    if (!name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.pdf')) {
+      setStatus({ type: 'error', message: 'Only Excel (.xlsx, .xls) and PDF files are supported.' })
+      return
+    }
+    handleFileUpload(file)
   }
 
   function handleReupload() {
@@ -1034,9 +1066,30 @@ export default function Step1Upload() {
       <div ref={splitContainerRef} className="flex flex-1 min-h-0">
         {/* Left: Preview */}
         <div
-          className="border-r border-border flex flex-col min-w-0 shrink-0"
+          className="border-r border-border flex flex-col min-w-0 shrink-0 relative"
           style={{ width: `${leftPct}%` }}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
+          {isDragOver && (
+            <div
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none"
+              style={{
+                background: 'rgba(59, 130, 246, 0.08)',
+                border: '2px dashed #3b82f6',
+                borderRadius: 4,
+              }}
+            >
+              <Upload className="w-10 h-10 text-blue-400 mb-3" />
+              <p className="text-[14px] text-blue-600" style={{ fontWeight: 500 }}>
+                Drop file to upload
+              </p>
+              <p className="text-[12px] text-blue-400 mt-1">
+                Excel or PDF
+              </p>
+            </div>
+          )}
           {uploadFileType === 'pdf' ? (
             <PdfPageViewer
               pdfUrl={pdfUrl ? `${API_BASE}${pdfUrl}` : null}
