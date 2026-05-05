@@ -3,145 +3,143 @@ Template service — loads and parses the firm's standardized output template.
 Provides the canonical field ordering used to render template tables in the UI.
 """
 import csv
+import re
+from collections import OrderedDict
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional
 
 from app.config import TEMPLATES_DIR
 
-# Income Statement section groupings.
-# The IS portion of loader_template.csv has no explicit sub-section headers,
-# so we define them here based on the Layer 2 prompt structure.
-IS_SECTION_MAP: List[Tuple[Optional[str], List[str]]] = [
-    (None, ["Total Revenue", "COGS"]),
-    (None, ["Gross Profit"]),
-    (None, ["Total Operating Expenses"]),
-    (None, ["EBITDA - Standard"]),
-    (None, ["EBITDA Adjustments"]),
-    (None, ["Adjusted EBITDA - Standard"]),
-    (None, [
-        "Depreciation & Amortization",
-        "Interest Expense/(Income)",
-        "Other Expense / (Income)",
-        "Taxes",
-    ]),
-    (None, ["Net Income (Loss)"]),
-    (
-        "LTM - Adj EBITDA items",
-        [
-            "Equity Cure",
-            "Adjusted EBITDA - Including Cures",
-            "Covenant EBITDA",
-        ],
-    ),
-]
+STATEMENT_MARKERS = frozenset({"Income Statement", "Balance Sheet", "Cash Flow Statement"})
 
-# Balance Sheet section headers found in the CSV (ALL CAPS)
-BS_SECTION_HEADERS = {"ASSETS", "LIABILITIES", "EQUITY"}
 
-# Lines to skip entirely
-SKIP_LINES = {"Income Statement", "Balance Sheet", "Cash Flow Statement", ""}
+@dataclass
+class TemplateField:
+    name: str
+    section: str        # _g1-_g8 for unnamed IS groups, named section or "" for CFS
+    blank_row_before: bool
+
+
+def _is_section_header(f: TemplateField) -> bool:
+    """A row is a named section header when its field name equals its section (e.g. ASSETS, LTM...)."""
+    return bool(f.section) and f.name == f.section
+
+
+def _build_sections(rows: List[TemplateField]) -> List[Dict[str, Any]]:
+    """
+    Group TemplateField rows into sections preserving CSV order.
+    - Section header rows (field==section) become the header of their group.
+    - _gN-prefixed sections produce {header: None, fields: [...]}.
+    - Named sections (ASSETS, LTM...) produce {header: "name", fields: [...]}.
+    """
+    groups: OrderedDict[str, Dict[str, Any]] = OrderedDict()
+
+    for f in rows:
+        key = f.section or "_default"
+        is_header = _is_section_header(f)
+
+        if key not in groups:
+            if is_header:
+                groups[key] = {"header": f.name, "fields": []}
+            else:
+                groups[key] = {"header": None, "fields": []}
+
+        if not is_header:
+            groups[key]["fields"].append(f.name)
+
+    return [g for g in groups.values() if g["fields"]]
 
 
 class TemplateService:
     def __init__(self, template_path: str) -> None:
-        self.template = self._load_template(template_path)
+        self.template, self.blank_row_before_fields = self._load_template(template_path)
 
-    def _load_template(self, path: str) -> Dict[str, Any]:
+    def _load_template(self, path: str):
         template_file = Path(path)
         if not template_file.exists():
             return self._build_fallback()
 
-        lines: List[str] = []
+        is_rows: List[TemplateField] = []
+        bs_rows: List[TemplateField] = []
+        cfs_rows: List[TemplateField] = []
+        blank_row_before: set = set()
+        current_stmt: Optional[str] = None
+
         with open(template_file, encoding="utf-8", newline="") as f:
-            reader = csv.reader(f)
+            reader = csv.DictReader(f)
             for row in reader:
-                lines.append(row[0].strip() if row else "")
+                field = row.get("field", "").strip()
+                section = row.get("section", "").strip()
+                brb = row.get("blank_row_before", "").strip() == "1"
 
-        # Split into IS, BS, and CFS lines
-        is_lines: List[str] = []
-        bs_lines: List[str] = []
-        cfs_lines: List[str] = []
-        section = "is"
+                if not field:
+                    continue
 
-        for line in lines:
-            if line == "Income Statement":
-                section = "is"
-                continue
-            if line == "Balance Sheet":
-                section = "bs"
-                continue
-            if line == "Cash Flow Statement":
-                section = "cfs"
-                continue
-            if section == "is":
-                is_lines.append(line)
-            elif section == "bs":
-                bs_lines.append(line)
-            else:
-                cfs_lines.append(line)
+                if field in STATEMENT_MARKERS:
+                    current_stmt = field
+                    if brb:
+                        blank_row_before.add(field)
+                    continue
 
-        # Build IS structure using hardcoded section map
-        is_all_fields = [l for l in is_lines if l not in SKIP_LINES]
-        is_field_set = set(is_all_fields)
-        is_sections = []
-        for header, fields in IS_SECTION_MAP:
-            valid_fields = [f for f in fields if f in is_field_set]
-            if not valid_fields:
-                continue
-            is_sections.append({"header": header, "fields": valid_fields})
+                if brb:
+                    blank_row_before.add(field)
 
-        # Build BS structure using CSV section headers
-        bs_all_fields: List[str] = []
-        bs_sections = []
-        current_header: Optional[str] = None
-        current_fields: List[str] = []
+                tf = TemplateField(name=field, section=section, blank_row_before=brb)
 
-        for line in bs_lines:
-            if line in SKIP_LINES:
-                continue
-            if line in BS_SECTION_HEADERS:
-                if current_header is not None or current_fields:
-                    bs_sections.append({"header": current_header, "fields": current_fields})
-                current_header = line
-                current_fields = []
-            else:
-                current_fields.append(line)
-                bs_all_fields.append(line)
+                if current_stmt == "Income Statement":
+                    is_rows.append(tf)
+                elif current_stmt == "Balance Sheet":
+                    bs_rows.append(tf)
+                elif current_stmt == "Cash Flow Statement":
+                    cfs_rows.append(tf)
 
-        if current_fields:
-            bs_sections.append({"header": current_header, "fields": current_fields})
+        is_sections = _build_sections(is_rows)
+        is_all_fields = [f.name for f in is_rows if not _is_section_header(f)]
 
-        # Build CFS structure — flat, no sub-sections
-        cfs_all_fields = [l for l in cfs_lines if l not in SKIP_LINES and l]
+        bs_sections = _build_sections(bs_rows)
+        bs_all_fields = [f.name for f in bs_rows if not _is_section_header(f)]
+
+        cfs_all_fields = [f.name for f in cfs_rows]
         cfs_sections = [{"header": None, "fields": cfs_all_fields}] if cfs_all_fields else []
 
-        return {
-            "income_statement": {
-                "sections": is_sections,
-                "allFields": is_all_fields,
-            },
-            "balance_sheet": {
-                "sections": bs_sections,
-                "allFields": bs_all_fields,
-            },
-            "cash_flow_statement": {
-                "sections": cfs_sections,
-                "allFields": cfs_all_fields,
-            },
-        }
-
-    def _build_fallback(self) -> Dict[str, Any]:
-        """Minimal fallback if template CSV is missing."""
-        is_all_fields = [f for _, fields in IS_SECTION_MAP for f in fields]
-        is_sections = [
-            {"header": h, "fields": f}
-            for h, f in IS_SECTION_MAP
-        ]
-        return {
+        template = {
             "income_statement": {"sections": is_sections, "allFields": is_all_fields},
-            "balance_sheet": {"sections": [], "allFields": []},
-            "cash_flow_statement": {"sections": [], "allFields": []},
+            "balance_sheet": {"sections": bs_sections, "allFields": bs_all_fields},
+            "cash_flow_statement": {"sections": cfs_sections, "allFields": cfs_all_fields},
         }
+        return template, frozenset(blank_row_before)
+
+    def _build_fallback(self):
+        """Minimal fallback if template CSV is missing."""
+        fallback_is_groups = [
+            ("_g1", ["Total Revenue", "COGS"]),
+            ("_g2", ["Gross Profit"]),
+            ("_g3", ["Total Operating Expenses"]),
+            ("_g4", ["EBITDA - Standard"]),
+            ("_g5", ["EBITDA Adjustments"]),
+            ("_g6", ["Adjusted EBITDA - Standard"]),
+            ("_g7", ["Depreciation & Amortization", "Interest Expense/(Income)", "Other Expense / (Income)", "Taxes"]),
+            ("_g8", ["Net Income (Loss)"]),
+            ("LTM - Adj EBITDA items", ["Equity Cure", "Adjusted EBITDA - Including Cures", "Covenant EBITDA"]),
+        ]
+        is_all_fields = [f for _, fields in fallback_is_groups for f in fields]
+        is_sections = [
+            {"header": None if key.startswith("_") else key, "fields": fields}
+            for key, fields in fallback_is_groups
+        ]
+        return (
+            {
+                "income_statement": {"sections": is_sections, "allFields": is_all_fields},
+                "balance_sheet": {"sections": [], "allFields": []},
+                "cash_flow_statement": {"sections": [], "allFields": []},
+            },
+            frozenset({
+                "Total Revenue", "LTM - Adj EBITDA items", "Balance Sheet",
+                "Property, Plant & Equipment", "LIABILITIES", "Total Current Liabilities",
+                "Long Term Loans", "EQUITY", "Cash Flow Statement", "CAPEX",
+            }),
+        )
 
     def get_template_structure(self) -> Dict[str, Any]:
         return self.template

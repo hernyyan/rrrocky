@@ -1,62 +1,63 @@
-Income Statement
-Total Revenue
-COGS
-Gross Profit
-Total Operating Expenses
-EBITDA - Standard
-EBITDA Adjustments
-Adjusted EBITDA - Standard
-Depreciation & Amortization
-Interest Expense/(Income)
-Other Expense / (Income)
-Taxes
-Net Income (Loss)
-LTM - Adj EBITDA items
-Equity Cure
-Adjusted EBITDA - Including Cures
-Covenant EBITDA
-
-Balance Sheet
-ASSETS
-Cash & Cash Equivalents
-Accounts Receivable
-Inventory
-Prepaid Expenses
-Other Current Assets
-Total Current Assets
-"Property, Plant & Equipment"
-Accumulated Depreciation
-Goodwill & Intangibles
-Other non-current assets
-Total Non-Current Assets
-Total Assets
-
-LIABILITIES
-Accounts Payable
-Accrued Liabilities
-Deferred Revenue
-Revolver - Balance Sheet
-Current Maturities
-Other Current Liabilities
-Total Current Liabilities
-Long Term Loans
-Long Term Leases
-Other Non-Current Liabilities
-Total Non-Current Liabilities
-Total Liabilities
-
-EQUITY
-Paid in Capital
-Retained Earnings
-Other Equity
-Total Equity
-Total Liabilities and Equity
-Check
-
-Cash Flow Statement
-Operating Cash Flow (Working Capital)
-Operating Cash Flow (Non-Working Capital)
-Operating Cash Flow
-Investing Cash Flow
-Financing Cash Flow
-CAPEX
+field,section,blank_row_before
+Income Statement,,
+Total Revenue,_g1,1
+COGS,_g1,
+Gross Profit,_g2,
+Total Operating Expenses,_g3,
+EBITDA - Standard,_g4,
+EBITDA Adjustments,_g5,
+Adjusted EBITDA - Standard,_g6,
+Depreciation & Amortization,_g7,
+Interest Expense/(Income),_g7,
+Other Expense / (Income),_g7,
+Taxes,_g7,
+Net Income (Loss),_g8,
+LTM - Adj EBITDA items,LTM - Adj EBITDA items,1
+Equity Cure,LTM - Adj EBITDA items,
+Adjusted EBITDA - Including Cures,LTM - Adj EBITDA items,
+Covenant EBITDA,LTM - Adj EBITDA items,
+,,
+Balance Sheet,,1
+ASSETS,ASSETS,
+Cash & Cash Equivalents,ASSETS,
+Accounts Receivable,ASSETS,
+Inventory,ASSETS,
+Prepaid Expenses,ASSETS,
+Other Current Assets,ASSETS,
+Total Current Assets,ASSETS,
+"Property, Plant & Equipment",ASSETS,1
+Accumulated Depreciation,ASSETS,
+Goodwill & Intangibles,ASSETS,
+Other non-current assets,ASSETS,
+Total Non-Current Assets,ASSETS,
+Total Assets,ASSETS,
+,,
+LIABILITIES,LIABILITIES,1
+Accounts Payable,LIABILITIES,
+Accrued Liabilities,LIABILITIES,
+Deferred Revenue,LIABILITIES,
+Revolver - Balance Sheet,LIABILITIES,
+Current Maturities,LIABILITIES,
+Other Current Liabilities,LIABILITIES,
+Total Current Liabilities,LIABILITIES,1
+Long Term Loans,LIABILITIES,1
+Long Term Leases,LIABILITIES,
+Other Non-Current Liabilities,LIABILITIES,
+Total Non-Current Liabilities,LIABILITIES,
+Total Liabilities,LIABILITIES,
+,,
+EQUITY,EQUITY,1
+Paid in Capital,EQUITY,
+Retained Earnings,EQUITY,
+Other Equity,EQUITY,
+Total Equity,EQUITY,
+Total Liabilities and Equity,EQUITY,
+Check,EQUITY,
+,,
+Cash Flow Statement,,1
+Operating Cash Flow (Working Capital),,
+Operating Cash Flow (Non-Working Capital),,
+Operating Cash Flow,,
+Investing Cash Flow,,
+Financing Cash Flow,,
+CAPEX,,1
