@@ -3,11 +3,14 @@ POST /layer1/run — Full implementation.
 Loads CSV from disk, calls the Layer 1 service, updates DB, returns extracted line items.
 """
 import json
+import logging
 
 import anthropic
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 from app.config import PROCESSED_DIR
 from app.db.database import get_db
@@ -87,7 +90,7 @@ def run_layer1(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # Update DB layer1_data (non-fatal)
+    # Update DB layer1_data (non-fatal — extraction result is still returned on failure)
     try:
         row = db.execute(
             text("SELECT layer1_data FROM reviews WHERE session_id = :sid"),
@@ -107,8 +110,9 @@ def run_layer1(
             {"data": json.dumps(existing), "sid": request.sessionId},
         )
         db.commit()
-    except Exception:
+    except Exception as exc:
         db.rollback()
+        logger.warning("Layer 1 DB persistence failed for session %s: %s", request.sessionId, exc)
 
     return Layer1Response(
         sheetName=request.sheetName,

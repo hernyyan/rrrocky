@@ -3,8 +3,15 @@ Pydantic request/response models for all API endpoints.
 Every data structure passed between frontend and backend has a corresponding model here.
 """
 from __future__ import annotations
+from enum import Enum
 from typing import Optional, Dict, List
 from pydantic import BaseModel
+
+
+class CorrectionTag(str, Enum):
+    one_off_error = "one_off_error"
+    general_fix = "general_fix"
+    company_specific = "company_specific"
 
 
 # ─── Shared ───────────────────────────────────────────────────────────────────
@@ -100,7 +107,7 @@ class CorrectionRequest(BaseModel):
     originalValue: float
     correctedValue: float
     reasoning: Optional[str] = None
-    tag: Optional[str] = None  # 'one_off_error' | 'company_specific' | 'general_fix'
+    tag: Optional[CorrectionTag] = None
 
 
 class CorrectionResponse(BaseModel):
@@ -135,7 +142,7 @@ class CorrectionItem(BaseModel):
     originalValue: float
     correctedValue: float
     reasoning: Optional[str] = None
-    tag: Optional[str] = None
+    tag: Optional[CorrectionTag] = None
     timestamp: str
 
 
@@ -188,7 +195,7 @@ class CorrectionProcessItem(BaseModel):
     layer2_validation: Optional[str] = None
     corrected_value: float
     analyst_reasoning: Optional[str] = None
-    tag: str  # 'one_off_error' | 'company_specific' | 'general_fix'
+    tag: CorrectionTag
 
 
 class CorrectionProcessRequest(BaseModel):

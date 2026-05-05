@@ -179,6 +179,30 @@ export interface TemplateResponse {
   cash_flow_statement: TemplateStatement
 }
 
+// Session / review continuity types
+
+export interface ExistingReviewCheck {
+  exists: boolean
+  session_id: string | null
+  finalized_at: string | null
+}
+
+export interface ContinuedReview {
+  session_id: string
+  company_name: string
+  reporting_period: string
+  layer1_data: Record<string, Layer1Result>
+  layer2_data: Record<string, Layer2Result>
+  corrections: CorrectionProcessItem[]
+}
+
+// Tab configuration
+
+export interface StatementTabConfig {
+  tabs: string[]
+  fieldAssignments: Record<string, string>
+}
+
 // Company types
 
 export interface Company {

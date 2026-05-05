@@ -14,6 +14,9 @@ import type {
   CorrectionProcessRequest,
   CorrectionProcessResponse,
   CompanyContextStatus,
+  ExistingReviewCheck,
+  ContinuedReview,
+  StatementTabConfig,
 } from '../types'
 
 export const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -197,7 +200,7 @@ export async function getCompanyContextStatus(companyId: number): Promise<Compan
 }
 
 // GET /reviews/check-existing
-export async function checkExistingReview(companyId: number, reportingPeriod: string): Promise<{ exists: boolean; session_id?: string; finalized_at?: string | null }> {
+export async function checkExistingReview(companyId: number, reportingPeriod: string): Promise<ExistingReviewCheck> {
   const params = new URLSearchParams({ company_id: String(companyId), reporting_period: reportingPeriod })
   const res = await fetch(`${API_BASE}/reviews/check-existing?${params}`)
   if (!res.ok) throw new Error('Failed to check existing review')
@@ -205,7 +208,7 @@ export async function checkExistingReview(companyId: number, reportingPeriod: st
 }
 
 // POST /reviews/continue-previous
-export async function continuePreviousReview(companyId: number, reportingPeriod: string): Promise<{ session_id: string; company_name: string; reporting_period: string; layer1_data: unknown; layer2_data: unknown; corrections: unknown[] }> {
+export async function continuePreviousReview(companyId: number, reportingPeriod: string): Promise<ContinuedReview> {
   const res = await fetch(`${API_BASE}/reviews/continue-previous`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -249,10 +252,8 @@ export async function recalculate(
   return handleResponse(res)
 }
 
-export interface StatementTabConfig {
-  tabs: string[]
-  fieldAssignments: Record<string, string>
-}
+// Re-export StatementTabConfig so imports from this module continue to work
+export type { StatementTabConfig }
 
 // GET /companies/{id}/statement-tab-configs
 export async function getStatementTabConfigs(companyId: number): Promise<Record<string, StatementTabConfig>> {

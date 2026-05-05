@@ -6,11 +6,14 @@ This avoids the async/sync mismatch that occurs when a synchronous Anthropic SDK
 is made inside an `async def` handler, which would block the event loop.
 """
 import json
+import logging
 
 import anthropic
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 from app.db.database import get_db
 from app.models.schemas import Layer2Request, Layer2Response
@@ -76,8 +79,9 @@ def run_layer2(request: Layer2Request, db: Session = Depends(get_db)):
                 {"data": json.dumps(existing_data), "sid": request.session_id},
             )
             db.commit()
-        except Exception:
+        except Exception as exc:
             db.rollback()
+            logger.warning("Layer 2 DB persistence failed for session %s: %s", request.session_id, exc)
 
     print(f"Layer 2 completed for {request.statement_type}")
     return result

@@ -15,11 +15,11 @@ This plan addresses 12 architectural issues found in a full codebase review. Iss
 
 | ID | Issue | Tier | Status |
 |----|-------|------|--------|
-| A1 | Extract `Layer2ResponseParser` module | Quick win | `[ ]` |
-| A2 | Word count utility — eliminate 3-way duplication | Quick win | `[ ]` |
-| A3 | Fix silent DB persistence failures in L1/L2 routes | Quick win | `[ ]` |
-| A4 | Add Correction tag validation on backend | Quick win | `[ ]` |
-| A5 | Fix type gaps for session continuity and finalization | Quick win | `[ ]` |
+| A1 | Extract `Layer2ResponseParser` module | Quick win | `[x]` |
+| A2 | Word count utility — eliminate 3-way duplication | Quick win | `[x]` |
+| A3 | Fix silent DB persistence failures in L1/L2 routes | Quick win | `[x]` |
+| A4 | Add Correction tag validation on backend | Quick win | `[x]` |
+| A5 | Fix type gaps for session continuity and finalization | Quick win | `[x]` |
 | B1 | Split `admin.py` monolith into focused routers | Medium | `[ ]` |
 | B2 | Consolidate Template structure — CSV as single source of truth | Medium | `[ ]` |
 | B3 | Remove `recalculate.ts` — route all recalculation through backend | Medium | `[ ]` |
