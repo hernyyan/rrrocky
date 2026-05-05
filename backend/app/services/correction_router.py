@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.config import DATA_DIR
-from app.models.schemas import CorrectionProcessItem, CorrectionProcessResponse
+from app.models.schemas import CorrectionProcessItem, CorrectionProcessResponse, CorrectionTag
 
 GENERAL_FIXES_CSV = DATA_DIR / "general_fixes.csv"
 
@@ -130,16 +130,16 @@ def process_corrections(
     queued_ids: List[int] = []
 
     for item in corrections:
-        tag = item.tag or "one_off_error"
+        tag = item.tag or CorrectionTag.one_off_error
 
-        if tag == "one_off_error":
+        if tag == CorrectionTag.one_off_error:
             counts["one_off_error"] += 1
 
-        elif tag == "general_fix":
+        elif tag == CorrectionTag.general_fix:
             _append_general_fix_csv(company_name, period, item, timestamp)
             counts["general_fix"] += 1
 
-        elif tag == "company_specific":
+        elif tag == CorrectionTag.company_specific:
             if company_id is not None:
                 new_id = _queue_company_specific(db, company_id, company_name, period, item)
                 queued_ids.append(new_id)

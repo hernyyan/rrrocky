@@ -20,6 +20,7 @@ from sqlalchemy import text
 
 from app.config import COMPANY_CONTEXT_DIR, DATA_DIR, LAYER_A_MODEL, LAYER_B_MODEL
 from app.services.claude_service import get_claude_service
+from app.utils.text_utils import markdown_body_word_count, COMPANY_CONTEXT_WORD_LIMIT, COMPANY_CONTEXT_WORD_WARNING
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +36,11 @@ def _check_markdown_word_count(
     timestamp: str,
 ) -> None:
     """Log warnings and append alerts if the markdown file is approaching or over the word limit."""
-    word_count = len(content.split())
+    wc = markdown_body_word_count(content)
 
-    if word_count > 5000:
+    if wc > COMPANY_CONTEXT_WORD_LIMIT:
         logger.warning(
-            f"Company context file for {company_name} exceeds 5000 words ({word_count}). "
+            f"Company context file for {company_name} exceeds {COMPANY_CONTEXT_WORD_LIMIT} words ({wc}). "
             "Manual review recommended."
         )
         alert = {
@@ -48,15 +49,15 @@ def _check_markdown_word_count(
             "company_id": company_id,
             "company_name": company_name,
             "markdown_filename": markdown_filename,
-            "word_count": word_count,
-            "message": "Company context file exceeds 5,000 word limit. Manual review and condensing recommended.",
+            "word_count": wc,
+            "message": f"Company context file exceeds {COMPANY_CONTEXT_WORD_LIMIT:,} word limit. Manual review and condensing recommended.",
             "status": "open",
         }
         with ALERTS_PATH.open("a", encoding="utf-8") as f:
             f.write(json.dumps(alert) + "\n")
-    elif word_count > 4000:
+    elif wc > COMPANY_CONTEXT_WORD_WARNING:
         logger.info(
-            f"Company context file for {company_name} approaching limit ({word_count}/5000 words)."
+            f"Company context file for {company_name} approaching limit ({wc}/{COMPANY_CONTEXT_WORD_LIMIT} words)."
         )
 
 

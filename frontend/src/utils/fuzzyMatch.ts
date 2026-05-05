@@ -1,4 +1,4 @@
-import type { StatementTabConfig } from '../api/client'
+import type { StatementTabConfig } from '../types'
 
 function levenshtein(a: string, b: string): number {
   const m = a.length

@@ -13,23 +13,12 @@ from sqlalchemy import text
 from app.config import COMPANY_CONTEXT_DIR, DATA_DIR
 from app.db.database import get_db
 from app.models.schemas import CompanyCreate, CompanyResponse, ReprocessResponse, ReprocessCorrectionResult
+from app.utils.text_utils import markdown_body_word_count
 
 router = APIRouter()
 
 CHANGELOG_PATH = DATA_DIR / "company_context_changelog.jsonl"
 
-
-def _count_markdown_words(content: str) -> int:
-    """Count words in markdown content, excluding the title line (# Company — ...)."""
-    body_lines = []
-    skipped_title = False
-    for line in content.split("\n"):
-        if not skipped_title and line.strip().startswith("#"):
-            skipped_title = True
-            continue
-        body_lines.append(line)
-    body = "\n".join(body_lines).strip()
-    return len(body.split()) if body else 0
 
 
 def _normalize_company_name(name: str) -> str:
@@ -153,7 +142,7 @@ def get_context_status(company_id: int, db: Session = Depends(get_db)):
     has_rules = rule_count > 0
 
     # Word count of the substantive content (excluding the title line)
-    word_count = _count_markdown_words(content) if has_rules else 0
+    word_count = markdown_body_word_count(content) if has_rules else 0
 
     return {
         "company_id": company_id,

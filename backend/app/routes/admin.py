@@ -26,6 +26,7 @@ from app.db.database import get_db
 from app.models.schemas import AdminContextUpdateRequest, AdminWriteRuleRequest, AdminRenameCompanyRequest, AlertStatusUpdateRequest
 from app.routes.companies import _normalize_company_name, _derive_markdown_filename, _create_markdown_file
 from app.services.claude_service import get_claude_service
+from app.utils.text_utils import markdown_body_word_count
 from app.services.template_service import get_template_service
 
 router = APIRouter(prefix="/admin")
@@ -56,7 +57,7 @@ def admin_list_companies(db: Session = Depends(get_db)):
             path = COMPANY_CONTEXT_DIR / markdown_filename
             if path.exists():
                 content = path.read_text(encoding="utf-8")
-                word_count = _count_markdown_words(content)
+                word_count = markdown_body_word_count(content)
                 file_size_bytes = path.stat().st_size
                 mtime = os.path.getmtime(path)
                 last_modified = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
@@ -110,7 +111,7 @@ def admin_company_context(company_id: int, db: Session = Depends(get_db)):
         path = COMPANY_CONTEXT_DIR / markdown_filename
         if path.exists():
             content = path.read_text(encoding="utf-8")
-            word_count = _count_markdown_words(content)
+            word_count = markdown_body_word_count(content)
 
     return {
         "id": company_id,
@@ -430,17 +431,6 @@ def admin_export_review(session_id: str, db: Session = Depends(get_db)):
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
-def _count_markdown_words(content: str) -> int:
-    """Count words in markdown content, excluding the title line (# Company — ...)."""
-    body_lines = []
-    skipped_title = False
-    for line in content.split("\n"):
-        if not skipped_title and line.strip().startswith("#"):
-            skipped_title = True
-            continue
-        body_lines.append(line)
-    body = "\n".join(body_lines).strip()
-    return len(body.split()) if body else 0
 
 
 def _read_jsonl(path) -> list:
@@ -482,7 +472,7 @@ def admin_update_company_context(
     md_path = COMPANY_CONTEXT_DIR / row[0]
     md_path.write_text(request.content, encoding="utf-8")
 
-    return {"success": True, "word_count": _count_markdown_words(request.content)}
+    return {"success": True, "word_count": markdown_body_word_count(request.content)}
 
 
 # ── Endpoint 9: POST /admin/write-rule ────────────────────────────────────────
