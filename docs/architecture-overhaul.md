@@ -20,8 +20,8 @@ This plan addresses 12 architectural issues found in a full codebase review. Iss
 | A3 | Fix silent DB persistence failures in L1/L2 routes | Quick win | `[x]` |
 | A4 | Add Correction tag validation on backend | Quick win | `[x]` |
 | A5 | Fix type gaps for session continuity and finalization | Quick win | `[x]` |
-| B1 | Split `admin.py` monolith into focused routers | Medium | `[ ]` |
-| B2 | Consolidate Template structure — CSV as single source of truth | Medium | `[ ]` |
+| B1 | Split `admin.py` monolith into focused routers | Medium | `[x]` |
+| B2 | Consolidate Template structure — CSV as single source of truth | Medium | `[x]` |
 | B3 | Remove `recalculate.ts` — route all recalculation through backend | Medium | `[ ]` |
 | B4 | Extract Correction-recalculation pattern in Step2Classify | Medium | `[ ]` |
 | B5 | Unify "final values assembly" in Step2 and Step3 | Medium | `[ ]` |
@@ -197,7 +197,7 @@ These require more careful file surgery but are self-contained. No inter-depende
 
 ### B1 — Split `admin.py` monolith into focused routers
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 **Files touched:**
 - `backend/app/routes/admin.py` — split into 4 files, then delete or reduce to re-exports
@@ -236,7 +236,7 @@ URL paths stay identical — no API contract change.
 
 ### B2 — Consolidate Template structure — CSV as single source of truth
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 **Files touched:**
 - `backend/templates/loader_template.csv` — add new columns
