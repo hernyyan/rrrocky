@@ -22,9 +22,9 @@ This plan addresses 12 architectural issues found in a full codebase review. Iss
 | A5 | Fix type gaps for session continuity and finalization | Quick win | `[x]` |
 | B1 | Split `admin.py` monolith into focused routers | Medium | `[x]` |
 | B2 | Consolidate Template structure — CSV as single source of truth | Medium | `[x]` |
-| B3 | Remove `recalculate.ts` — route all recalculation through backend | Medium | `[ ]` |
-| B4 | Extract Correction-recalculation pattern in Step2Classify | Medium | `[ ]` |
-| B5 | Unify "final values assembly" in Step2 and Step3 | Medium | `[ ]` |
+| B3 | Remove `recalculate.ts` — route all recalculation through backend | Medium | `[x]` |
+| B4 | Extract Correction-recalculation pattern in Step2Classify | Medium | `[x]` |
+| B5 | Unify "final values assembly" in Step2 and Step3 | Medium | `[x]` |
 | C1 | Extract `CorrectionPipeline` module | Refactor | `[ ]` |
 | C2 | Document `camelCase ↔ snake_case` impedance seam | Documentation | `[ ]` |
 
@@ -276,7 +276,7 @@ Update `export.py` and `admin.py` to read `blank_row_before` from the parsed `Te
 
 ### B3 — Remove `recalculate.ts` — route all recalculation through backend
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 **Files touched:**
 - `frontend/src/utils/recalculate.ts` — delete
@@ -301,7 +301,7 @@ Update `export.py` and `admin.py` to read `blank_row_before` from the parsed `Te
 
 ### B4 — Extract Correction-recalculation pattern in Step2Classify
 
-**Status:** `[ ]` *(depends on B3)*
+**Status:** `[x]`
 
 **Files touched:**
 - `frontend/src/components/wizard/Step2Classify.tsx`
@@ -337,7 +337,7 @@ export function useCorrections(sessionId: string, statementType: string) {
 
 ### B5 — Unify "final values assembly" in Step2 and Step3
 
-**Status:** `[ ]` *(depends on B4)*
+**Status:** `[x]`
 
 **Files touched:**
 - `frontend/src/components/wizard/Step2Classify.tsx`
