@@ -455,7 +455,7 @@ These were surfaced by deeper exploration and should be addressed during the abo
 
 ### X1 — Statement type inference in Step2 is fragile
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 **File:** `frontend/src/components/wizard/Step2Classify.tsx` (lines ~316–324)
 
@@ -467,7 +467,7 @@ The current code infers which statement a selected field belongs to by scanning 
 
 ### X2 — `isOverride` is frontend-only — never sent to backend
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 **Files:** `frontend/src/types/index.ts` (Correction.isOverride), `frontend/src/components/wizard/Step2Classify.tsx` (line ~391)
 
@@ -479,7 +479,7 @@ The `isOverride` flag on `Correction` is computed client-side (true when `CALCUL
 
 ### X3 — Session resumption returns untyped layer data
 
-**Status:** `[ ]` *(overlaps with A5)*
+**Status:** `[x]`
 
 **File:** `frontend/src/api/client.ts` — `continuePreviousReview`
 
