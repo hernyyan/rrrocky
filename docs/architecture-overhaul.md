@@ -25,8 +25,8 @@ This plan addresses 12 architectural issues found in a full codebase review. Iss
 | B3 | Remove `recalculate.ts` — route all recalculation through backend | Medium | `[x]` |
 | B4 | Extract Correction-recalculation pattern in Step2Classify | Medium | `[x]` |
 | B5 | Unify "final values assembly" in Step2 and Step3 | Medium | `[x]` |
-| C1 | Extract `CorrectionPipeline` module | Refactor | `[ ]` |
-| C2 | Document `camelCase ↔ snake_case` impedance seam | Documentation | `[ ]` |
+| C1 | Extract `CorrectionPipeline` module | Refactor | `[x]` |
+| C2 | Document `camelCase ↔ snake_case` impedance seam | Documentation | `[x]` |
 
 ---
 
@@ -361,7 +361,7 @@ These are higher-effort, higher-impact changes. Approach each one as its own min
 
 ### C1 — Extract `CorrectionPipeline` module
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 **Files touched:**
 - `backend/app/services/correction_router.py` — reduce to tag dispatch only
@@ -414,7 +414,7 @@ def process_queued(company_id, db):
 
 ### C2 — Document the `camelCase ↔ snake_case` impedance seam
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 **Files touched:**
 - `docs/adr/ADR-0001-camelcase-snakecase-seam.md` — new ADR
