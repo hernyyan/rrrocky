@@ -4,12 +4,12 @@ import DataTable from '../shared/DataTable'
 import SidePanel from '../shared/SidePanel'
 import LoadingSpinner from '../shared/LoadingSpinner'
 import StatusBanner from '../shared/StatusBanner'
-import { runLayer2, saveCorrection, getTemplate, processCorrections, recalculate } from '../../api/client'
+import { runLayer2, getTemplate } from '../../api/client'
 import { IS_TEMPLATE_FIELDS, BS_TEMPLATE_FIELDS } from '../../mocks/mockData'
 import { formatFieldValue } from '../../utils/formatters'
-import { BOLD_FIELDS, ITALIC_FIELDS, isIndented, CALCULATED_FIELDS } from '../../utils/templateStyling'
-import { recalculateIS, recalculateBS, recalculateCFS } from '../../utils/recalculate'
-import type { Correction, Layer2Result, TemplateResponse, TemplateSection, CorrectionProcessItem } from '../../types'
+import { BOLD_FIELDS, ITALIC_FIELDS, isIndented } from '../../utils/templateStyling'
+import { useCorrections } from '../../hooks/useCorrections'
+import type { Correction, Layer2Result, TemplateResponse, TemplateSection } from '../../types'
 import {
   ArrowLeft,
   CheckCircle2,
@@ -141,7 +141,6 @@ export default function Step2Classify() {
   const [showBackConfirm, setShowBackConfirm] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [approvingStep2, setApprovingStep2] = useState(false)
-  const [pendingValues, setPendingValues] = useState<Record<string, number | null> | null>(null)
   const classifyingRef = useRef(false)
 
   const isLayer2 = layer2Results['income_statement']
@@ -323,6 +322,26 @@ export default function Step2Classify() {
       : 'balance_sheet'
     : null
 
+  const {
+    pendingValues,
+    clearPending,
+    save: handleSaveCorrection,
+    remove: handleRemoveCorrection,
+    liveEdit: handleLiveEdit,
+  } = useCorrections({
+    sessionId,
+    companyId,
+    companyName,
+    reportingPeriod,
+    selectedCellType,
+    layer2Results,
+    setLayer2Results,
+    corrections,
+    addCorrection,
+    removeCorrection,
+    onStatus: setStatus,
+  })
+
   const activeLayer2: Layer2Result | null = selectedCellType
     ? (layer2Results[selectedCellType] ?? null)
     : null
@@ -368,162 +387,6 @@ export default function Step2Classify() {
     ...(bsLayer2?.flaggedFields ?? []),
     ...(cfsLayer2?.flaggedFields ?? []),
   ].length
-
-  async function handleSaveCorrection(correctionData: Omit<Correction, 'timestamp'>) {
-    const correction: Correction = { ...correctionData, timestamp: new Date().toISOString() }
-    addCorrection(correction)
-    setPendingValues(null)
-
-    // Recompute layer2Results so calculated fields reflect the new correction
-    const stmtType = selectedCellType ?? 'income_statement'
-    const currentL2 = layer2Results[stmtType]
-    if (currentL2) {
-      const baseValues: Record<string, number | null> = { ...currentL2.values }
-      const allCorrections = [
-        ...corrections.filter(c => c.fieldName !== correctionData.fieldName),
-        correction,
-      ]
-      for (const c of allCorrections) {
-        baseValues[c.fieldName] = c.correctedValue
-      }
-      const overrides: Record<string, number> = {}
-      for (const c of allCorrections) {
-        if (c.isOverride && CALCULATED_FIELDS.has(c.fieldName)) {
-          overrides[c.fieldName] = c.correctedValue
-        }
-      }
-      const recalcFn = stmtType === 'income_statement' ? recalculateIS
-        : stmtType === 'balance_sheet' ? recalculateBS
-        : recalculateCFS
-      const recalculated = recalcFn(baseValues, overrides)
-      setLayer2Results({
-        ...layer2Results,
-        [stmtType]: { ...currentL2, values: recalculated },
-      })
-    }
-
-    // 1. Save correction to reviews table
-    try {
-      await saveCorrection({
-        sessionId,
-        fieldName: correctionData.fieldName,
-        statementType: selectedCellType ?? 'income_statement',
-        originalValue: correctionData.originalValue,
-        correctedValue: correctionData.correctedValue,
-        reasoning: correctionData.reasoning,
-        tag: correctionData.tag,
-      })
-    } catch {
-      // Non-fatal
-    }
-
-    // 2. Immediately route if tag needs processing
-    if (correctionData.tag === 'company_specific' || correctionData.tag === 'general_fix') {
-      const stmtType = selectedCellType ?? 'income_statement'
-      const layer2 = layer2Results[stmtType]
-      const valKeys = layer2?.fieldValidations[correctionData.fieldName] ?? []
-      const validationStr = valKeys.length > 0
-        ? valKeys
-            .map((k) => {
-              const chk = layer2?.validation[k]
-              return chk ? `${k}: ${chk.status} — ${chk.details}` : k
-            })
-            .join('; ')
-        : null
-
-      processCorrections({
-        company_id: companyId,
-        company_name: companyName,
-        period: reportingPeriod,
-        corrections: [{
-          field_name: correctionData.fieldName,
-          statement_type: stmtType,
-          layer2_value: layer2?.values[correctionData.fieldName] ?? null,
-          layer2_reasoning: layer2?.reasoning[correctionData.fieldName] ?? null,
-          layer2_validation: validationStr,
-          corrected_value: correctionData.correctedValue,
-          analyst_reasoning: correctionData.reasoning,
-          tag: correctionData.tag,
-        }],
-      }).catch((err) => {
-        console.error(`Correction processing failed for "${correctionData.fieldName}":`, err)
-      })
-    }
-
-    setStatus({ type: 'success', message: `Correction saved for "${correctionData.fieldName}".` })
-  }
-
-  function handleRemoveCorrection(fieldName: string) {
-    removeCorrection(fieldName)
-    setPendingValues(null)
-
-    // Recompute layer2Results after removal
-    const stmtType = selectedCellType ?? 'income_statement'
-    const currentL2 = layer2Results[stmtType]
-    if (currentL2) {
-      const baseValues: Record<string, number | null> = { ...currentL2.values }
-      const allCorrections = corrections.filter(c => c.fieldName !== fieldName)
-      // Revert removed field to its original AI-matched or backend value
-      baseValues[fieldName] = currentL2.aiMatchedValues?.[fieldName] ?? currentL2.values[fieldName]
-      for (const c of allCorrections) {
-        baseValues[c.fieldName] = c.correctedValue
-      }
-      const overrides: Record<string, number> = {}
-      for (const c of allCorrections) {
-        if (c.isOverride && CALCULATED_FIELDS.has(c.fieldName)) {
-          overrides[c.fieldName] = c.correctedValue
-        }
-      }
-      const recalcFn = stmtType === 'income_statement' ? recalculateIS
-        : stmtType === 'balance_sheet' ? recalculateBS
-        : recalculateCFS
-      const recalculated = recalcFn(baseValues, overrides)
-      setLayer2Results({
-        ...layer2Results,
-        [stmtType]: { ...currentL2, values: recalculated },
-      })
-    }
-
-    setStatus({ type: 'info', message: `Correction removed for "${fieldName}".` })
-  }
-
-  function handleLiveEdit(fieldName: string, value: number | null, isOverride: boolean) {
-    if (!selectedCellType) return
-    const layer2 = layer2Results[selectedCellType]
-    if (!layer2) return
-
-    const baseValues = { ...layer2.values }
-    // Apply any saved corrections as base
-    for (const c of corrections) {
-      if (c.fieldName in baseValues) {
-        baseValues[c.fieldName] = c.correctedValue
-      }
-    }
-
-    let updated: Record<string, number | null>
-    if (isOverride && value !== null) {
-      // Calculated field override — run with override set
-      const overrides = { [fieldName]: value }
-      if (selectedCellType === 'income_statement') {
-        updated = recalculateIS(baseValues, overrides)
-      } else if (selectedCellType === 'balance_sheet') {
-        updated = recalculateBS(baseValues, overrides)
-      } else {
-        updated = recalculateCFS(baseValues, overrides)
-      }
-    } else {
-      // Matched field direct edit — update field, then recalc downstream
-      const newBase = { ...baseValues, [fieldName]: value }
-      if (selectedCellType === 'income_statement') {
-        updated = recalculateIS(newBase, {})
-      } else if (selectedCellType === 'balance_sheet') {
-        updated = recalculateBS(newBase, {})
-      } else {
-        updated = recalculateCFS(newBase, {})
-      }
-    }
-    setPendingValues(updated)
-  }
 
   async function handleApproveStep2() {
     approveStep2()
@@ -800,7 +663,7 @@ export default function Step2Classify() {
             if (perField && perField[selectedCell]) return perField[selectedCell]
             return layer1Results[selectedCellType]?.sourceSheet ?? null
           })()}
-          onClose={() => { setSidePanelOpen(false); setPendingValues(null) }}
+          onClose={() => { setSidePanelOpen(false); clearPending() }}
           onSaveCorrection={handleSaveCorrection}
           onRemoveCorrection={handleRemoveCorrection}
           onLiveEdit={handleLiveEdit}

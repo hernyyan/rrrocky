@@ -5,6 +5,7 @@ import { finalizeOutput, getTemplate, getExport } from '../../api/client'
 import { formatFieldValue, formatDollar } from '../../utils/formatters'
 import { IS_TEMPLATE_FIELDS, BS_TEMPLATE_FIELDS } from '../../mocks/mockData'
 import { BOLD_FIELDS, ITALIC_FIELDS, isIndented } from '../../utils/templateStyling'
+import { assembleValues } from '../../utils/assembleValues'
 import type { TemplateResponse, TemplateSection } from '../../types'
 import {
   ArrowLeft,
@@ -79,27 +80,7 @@ export default function Step3Finalize() {
   const bsSections: TemplateSection[] = template?.balance_sheet.sections ?? fallbackBs
   const cfsSections: TemplateSection[] = template?.cash_flow_statement?.sections ?? []
 
-  // Build final values: Layer 2 base + corrections applied on top
-  function buildFinalValues() {
-    const isValues: Record<string, number | null> = { ...(isLayer2?.values ?? {}) }
-    const bsValues: Record<string, number | null> = { ...(bsLayer2?.values ?? {}) }
-    const cfsValues: Record<string, number | null> = { ...(cfsLayer2?.values ?? {}) }
-    const isFieldNames = new Set(isSections.flatMap((s) => s.fields))
-    const cfsFieldNames = new Set(cfsSections.flatMap((s) => s.fields))
-
-    for (const correction of corrections) {
-      if (isFieldNames.has(correction.fieldName)) {
-        isValues[correction.fieldName] = correction.correctedValue
-      } else if (cfsFieldNames.has(correction.fieldName)) {
-        cfsValues[correction.fieldName] = correction.correctedValue
-      } else {
-        bsValues[correction.fieldName] = correction.correctedValue
-      }
-    }
-    return { income_statement: isValues, balance_sheet: bsValues, cash_flow_statement: cfsValues }
-  }
-
-  const finalValues = buildFinalValues()
+  const finalValues = assembleValues(layer2Results, corrections, isSections, cfsSections)
   const correctedFieldNames = new Set(corrections.map((c) => c.fieldName))
   const allFlaggedFields = new Set([
     ...(isLayer2?.flaggedFields ?? []),
