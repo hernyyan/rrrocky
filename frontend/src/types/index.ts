@@ -81,7 +81,6 @@ export interface Correction {
   reasoning?: string
   tag: 'one_off_error' | 'company_specific' | 'general_fix'
   timestamp: string
-  isOverride?: boolean
 }
 
 // API Response/Request types

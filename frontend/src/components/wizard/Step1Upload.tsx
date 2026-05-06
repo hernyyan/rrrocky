@@ -843,14 +843,23 @@ export default function Step1Upload() {
     setDuplicateCheck(null)
     try {
       const data = await continuePreviousReview(companyId, reportingPeriod)
+
+      // Runtime guard: warn if resumed data is missing expected shape
+      if (!data.layer1_data || typeof data.layer1_data !== 'object') {
+        console.warn('[handleContinuePrevious] layer1_data missing or malformed', data.layer1_data)
+      }
+      if (data.layer2_data && typeof data.layer2_data !== 'object') {
+        console.warn('[handleContinuePrevious] layer2_data malformed', data.layer2_data)
+      }
+
       setSessionId(data.session_id)
-      setLayer1Results((data.layer1_data as Record<string, Layer1Result>) || {})
+      setLayer1Results(data.layer1_data || {})
       if (data.layer2_data) {
-        setLayer2Results(data.layer2_data as Record<string, Layer2Result>)
+        setLayer2Results(data.layer2_data)
       }
       if (data.corrections && Array.isArray(data.corrections)) {
         for (const c of data.corrections) {
-          addCorrection(c as Correction)
+          addCorrection(c)
         }
       }
       approveStep1()
