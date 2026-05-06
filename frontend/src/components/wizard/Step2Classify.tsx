@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useWizardState } from '../../hooks/useWizardState'
 import DataTable from '../shared/DataTable'
 import SidePanel from '../shared/SidePanel'
@@ -314,13 +314,19 @@ export default function Step2Classify() {
 
   const isAllFields = template?.income_statement.allFields ?? IS_TEMPLATE_FIELDS
   const cfsAllFields = template?.cash_flow_statement?.allFields ?? []
-  const selectedCellType: 'income_statement' | 'balance_sheet' | 'cash_flow_statement' | null = selectedCell
-    ? isAllFields.includes(selectedCell)
-      ? 'income_statement'
-      : cfsAllFields.includes(selectedCell)
-      ? 'cash_flow_statement'
-      : 'balance_sheet'
-    : null
+
+  // Stable field→statement map — computed once per template load, not per cell click.
+  // Last-write wins on collision: IS overrides BS/CFS, CFS overrides BS.
+  const fieldStatementMap = useMemo<Record<string, 'income_statement' | 'balance_sheet' | 'cash_flow_statement'>>(() => {
+    const map: Record<string, 'income_statement' | 'balance_sheet' | 'cash_flow_statement'> = {}
+    for (const f of (template?.balance_sheet.allFields ?? BS_TEMPLATE_FIELDS)) map[f] = 'balance_sheet'
+    for (const f of (template?.cash_flow_statement?.allFields ?? [])) map[f] = 'cash_flow_statement'
+    for (const f of isAllFields) map[f] = 'income_statement'
+    return map
+  }, [template])
+
+  const selectedCellType: 'income_statement' | 'balance_sheet' | 'cash_flow_statement' | null =
+    selectedCell ? (fieldStatementMap[selectedCell] ?? 'balance_sheet') : null
 
   const {
     pendingValues,

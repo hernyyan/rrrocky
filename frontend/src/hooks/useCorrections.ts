@@ -51,7 +51,7 @@ export function useCorrections({
       }
       const overrides: Record<string, number> = {}
       for (const c of allCorrections) {
-        if (c.isOverride && CALCULATED_FIELDS.has(c.fieldName)) {
+        if (CALCULATED_FIELDS.has(c.fieldName)) {
           overrides[c.fieldName] = c.correctedValue
         }
       }
@@ -129,7 +129,7 @@ export function useCorrections({
       }
       const overrides: Record<string, number> = {}
       for (const c of allCorrections) {
-        if (c.isOverride && CALCULATED_FIELDS.has(c.fieldName)) {
+        if (CALCULATED_FIELDS.has(c.fieldName)) {
           overrides[c.fieldName] = c.correctedValue
         }
       }

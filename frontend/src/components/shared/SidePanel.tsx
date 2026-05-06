@@ -85,7 +85,7 @@ function CalculatedFieldPanel({
   const [reasoningError, setReasoningError] = useState(false)
 
   useEffect(() => {
-    if (existingCorrection?.isOverride) {
+    if (fieldName && existingCorrection && CALCULATED_FIELDS.has(fieldName)) {
       setOverrideValue(String(existingCorrection.correctedValue))
       setOverrideReasoning(existingCorrection.reasoning ?? '')
     } else {
@@ -98,7 +98,7 @@ function CalculatedFieldPanel({
   const pythonResult = meta?.python_result
   const aiVal = meta?.ai_matched_value
   const matchStatus = meta?.match_status
-  const overrideActive = meta?.type === 'overridden' || existingCorrection?.isOverride
+  const overrideActive = meta?.type === 'overridden' || (existingCorrection != null && fieldName != null && CALCULATED_FIELDS.has(fieldName))
   const mathOk = meta?.math_ok ?? true
 
   function handleSave() {
@@ -271,7 +271,7 @@ function CalculatedFieldPanel({
             Save Override
           </button>
 
-          {existingCorrection?.isOverride && (
+          {existingCorrection != null && fieldName != null && CALCULATED_FIELDS.has(fieldName) && (
             <button
               onClick={onClearOverride}
               className="w-full text-red-600 hover:text-red-700 py-1.5 text-[12px] flex items-center justify-center gap-1.5 transition-colors"
@@ -377,7 +377,6 @@ export default function SidePanel({
       correctedValue: value,
       reasoning,
       tag: 'one_off_error',
-      isOverride: true,
     })
   }
 
@@ -431,7 +430,7 @@ export default function SidePanel({
                 {formatFieldValue(fieldName, currentValue)}
               </p>
               <p className="text-[12px] text-amber-600 mt-1" style={{ fontWeight: 500 }}>
-                {existingCorrection.isOverride ? 'Overridden to:' : 'Corrected to:'}{' '}
+                {fieldName && CALCULATED_FIELDS.has(fieldName) ? 'Overridden to:' : 'Corrected to:'}{' '}
                 {formatFieldValue(fieldName, existingCorrection.correctedValue)}
               </p>
             </div>
@@ -604,7 +603,7 @@ export default function SidePanel({
                 Save Correction
               </button>
 
-              {existingCorrection && !existingCorrection.isOverride && (
+              {existingCorrection && !(fieldName && CALCULATED_FIELDS.has(fieldName)) && (
                 <button
                   onClick={() => onRemoveCorrection(fieldName)}
                   className="w-full text-red-600 hover:text-red-700 py-1.5 text-[12px] flex items-center justify-center gap-1.5 transition-colors"
