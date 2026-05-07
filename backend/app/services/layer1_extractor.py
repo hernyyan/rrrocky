@@ -44,14 +44,16 @@ def _cell_value(cell) -> Any:
 def extract_header_rows(
     filepath: str,
     sheet_name: str,
-    n_rows: int = 20,
+    n_rows: int = 150,
 ) -> str:
     """
     Open the workbook and return the first *n_rows* rows of *sheet_name* as a
-    plain-text block (tab-separated columns, one row per line).
+    plain-text block with 1-based row numbers prepended.
 
-    This is fed to the AI column identifier (Step B) so it can locate the
-    correct period column without needing the entire sheet.
+    Format: "[row_num]\tcol1\tcol2\t..."
+
+    Row numbers allow the AI column identifier (Step B) to return precise
+    section_start_row / section_end_row values for multi-statement sheets.
     """
     wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
     ws = wb[sheet_name]
@@ -60,8 +62,9 @@ def extract_header_rows(
     for i, row in enumerate(ws.iter_rows(values_only=True)):
         if i >= n_rows:
             break
+        row_num = i + 1
         cells = [str(v) if v is not None else "" for v in row]
-        lines.append("\t".join(cells))
+        lines.append(f"[{row_num}]\t" + "\t".join(cells))
 
     wb.close()
     return "\n".join(lines)
@@ -72,12 +75,14 @@ def extract_header_rows(
 def extract_rows_with_metadata(
     filepath: str,
     sheet_name: str,
-    column_index: int,       # 1-based column index of the target period
-    source_scaling: str,     # 'thousands' | 'millions' | 'actual_dollars'
-    skip_rows: int = 0,      # header rows to skip before data begins
+    column_index: int,          # 1-based column index of the target period
+    source_scaling: str,        # 'thousands' | 'millions' | 'actual_dollars'
+    skip_rows: int = 0,         # legacy: rows to skip from sheet top (ignored when section_start_row > 0)
+    section_start_row: int = 0, # 1-based absolute row to begin reading (0 = use skip_rows)
+    section_end_row: int = 0,   # 1-based absolute row to stop reading (0 = read to end)
 ) -> List[Dict[str, Any]]:
     """
-    Read the full sheet and return one dict per non-empty label row with:
+    Read the sheet and return one dict per non-empty label row with:
       - label      : str   — text from the first non-empty cell in the row
       - label_col  : int   — 1-based column index where the label was found
       - value      : float | None
@@ -86,10 +91,22 @@ def extract_rows_with_metadata(
       - indent     : int   — alignment indent level (0 = leftmost)
       - row_index  : int   — 1-based sheet row number
 
+    Row range: when section_start_row > 0, only rows in [section_start_row,
+    section_end_row] are processed. This allows multi-statement sheets to be
+    split correctly. Falls back to skip_rows when section_start_row is not set.
+
     Scaling is applied: values are normalised to actual dollars.
     Rows with no label text are skipped.
     """
     scale = _parse_scale(source_scaling)
+
+    # Resolve effective row bounds
+    if section_start_row > 0:
+        start_row = section_start_row
+    else:
+        start_row = skip_rows + 1  # 1-based: skip_rows=3 means start at row 4
+
+    end_row: Optional[int] = section_end_row if section_end_row > 0 else None
 
     wb = openpyxl.load_workbook(filepath, read_only=False, data_only=True)
     ws = wb[sheet_name]
@@ -97,8 +114,10 @@ def extract_rows_with_metadata(
     rows: List[Dict[str, Any]] = []
 
     for row_num, row in enumerate(ws.iter_rows(), start=1):
-        if row_num <= skip_rows:
+        if row_num < start_row:
             continue
+        if end_row is not None and row_num > end_row:
+            break
 
         # Find label: first non-empty cell in the row
         label: Optional[str] = None

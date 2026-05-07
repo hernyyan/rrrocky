@@ -66,12 +66,16 @@ class Layer1Service:
             )
 
         # ── Step A: header extraction ────────────────────────────────────────
-        header_text = extract_header_rows(filepath, sheet_name, n_rows=12)
+        header_text = extract_header_rows(filepath, sheet_name, n_rows=150)
 
         # ── Step B: AI column identifier ─────────────────────────────────────
         col_response = self.claude.call_claude(
             "layer1_column_identifier",
-            {"reporting_period": reporting_period, "header_rows": header_text},
+            {
+                "reporting_period": reporting_period,
+                "statement_type": normalized,
+                "header_rows": header_text,
+            },
             model,
             max_tokens=1024,
         )
@@ -80,6 +84,14 @@ class Layer1Service:
         source_scaling: str = str(col_info.get("source_scaling", "actual_dollars"))
         skip_rows: int = int(col_info.get("skip_rows", 0))
         column_identified: str = str(col_info.get("period_matched", col_info.get("column_letter", "")))
+        section_start_row: int = int(col_info.get("section_start_row", 0))
+        section_end_row: int = int(col_info.get("section_end_row", 0))
+
+        logger.info(
+            "[Layer1] %s: col=%d scaling=%s section=%s-%s",
+            normalized, column_index, source_scaling,
+            section_start_row or "auto", section_end_row or "end",
+        )
 
         # ── Step C: full extraction with metadata ────────────────────────────
         rows = extract_rows_with_metadata(
@@ -88,6 +100,8 @@ class Layer1Service:
             column_index=column_index,
             source_scaling=source_scaling,
             skip_rows=skip_rows,
+            section_start_row=section_start_row,
+            section_end_row=section_end_row,
         )
         rows_csv = rows_to_csv_with_metadata(rows)
 
