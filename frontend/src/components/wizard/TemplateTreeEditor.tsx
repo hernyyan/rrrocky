@@ -20,11 +20,10 @@ import { ChevronUp, ChevronDown, X, Plus } from 'lucide-react'
 const BADGE: Record<string, string> = {
   sum:        'bg-blue-100 text-blue-700 border-blue-200',
   individual: 'bg-gray-100 text-gray-600 border-gray-200',
-  margin:     'bg-purple-100 text-purple-700 border-purple-200',
 }
 
 const BADGE_LABEL: Record<string, string> = {
-  sum: 'SUM', individual: 'IND', margin: 'MAR',
+  sum: 'SUM', individual: 'IND',
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -145,20 +144,6 @@ export default function TemplateTreeEditor({ rows, waterfall, statementType, onC
       setPromoteMode({ parentId: row.id, selected: new Set() })
       return
     }
-
-    if (cur === 'margin') {
-      // MAR → IND (toggle)
-      const newRows = setNodeType(cloneRows(rows), row.id, 'individual')
-      onChange(newRows, waterfall)
-      return
-    }
-  }
-
-  function handleToggleMargin(row: Layer1TemplateRow) {
-    if (promoteMode) return
-    const newType = row.type === 'margin' ? 'individual' : 'margin'
-    const newRows = setNodeType(cloneRows(rows), row.id, newType)
-    onChange(newRows, waterfall)
   }
 
   // ── Promote mode ────────────────────────────────────────────────────────
@@ -285,11 +270,7 @@ export default function TemplateTreeEditor({ rows, waterfall, statementType, onC
         {/* Label */}
         <span
           className="flex-1 truncate"
-          style={{
-            fontWeight: row.type === 'sum' ? 600 : 400,
-            fontStyle: row.type === 'margin' ? 'italic' : 'normal',
-            color: row.type === 'margin' ? '#7c3aed' : undefined,
-          }}
+          style={{ fontWeight: row.type === 'sum' ? 600 : 400 }}
         >
           {row.label}
         </span>

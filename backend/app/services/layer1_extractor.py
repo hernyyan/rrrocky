@@ -117,12 +117,20 @@ def extract_rows_with_metadata(
         # Value from the target column
         value_cell = ws.cell(row=row_num, column=column_index)
         raw_val = _cell_value(value_cell)
-        value: Optional[float] = None
-        if raw_val is not None and str(raw_val).strip() not in ("", "-", "—"):
+        raw_str = str(raw_val).strip() if raw_val is not None else ""
+
+        if raw_val is None or raw_str == "":
+            # Genuinely empty cell — this is a title/header row, skip it
+            continue
+        elif raw_str in ("-", "—", "–"):
+            # Explicit zero indicator
+            value: float = 0.0
+        else:
             try:
-                value = float(str(raw_val).replace(",", "")) * scale
+                value = float(raw_str.replace(",", "").replace("(", "-").replace(")", "")) * scale
             except (ValueError, TypeError):
-                value = None
+                # Non-numeric (e.g. "N/A", text) — treat as title row and skip
+                continue
 
         font = _effective_font(label_cell)
         rows.append({
@@ -157,7 +165,7 @@ def rows_to_csv_with_metadata(rows: List[Dict[str, Any]]) -> str:
         writer.writerow({
             "row_index": r["row_index"],
             "label": r["label"],
-            "value": "" if r["value"] is None else r["value"],
+            "value": r["value"],
             "bold": r["bold"],
             "italic": r["italic"],
             "indent": r["indent"],

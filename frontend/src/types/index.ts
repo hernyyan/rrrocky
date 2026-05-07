@@ -37,7 +37,7 @@ export interface WizardState {
 
 export interface Layer1TemplateRow {
   id: number
-  type: 'individual' | 'sum' | 'margin'
+  type: 'individual' | 'sum'
   label: string
   value?: number | null
   bold?: boolean

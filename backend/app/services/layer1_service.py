@@ -104,6 +104,10 @@ class Layer1Service:
         )
         structured = self.claude.parse_json_response(struct_response)
 
+        # Strip margin rows — margins are calculated outside this app
+        if "rows" in structured:
+            structured["rows"] = _strip_margins(structured["rows"])
+
         # ── Build flat lineItems from structured (backward compat for Layer 2) ─
         line_items = _flatten_structured(structured.get("rows", []))
 
@@ -197,7 +201,8 @@ class Layer1Service:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _flatten_structured(rows: List[Dict], result: Optional[Dict] = None) -> Dict[str, float]:
-    """Recursively flatten structured rows into {label: value} for Layer 2."""
+    """Recursively flatten structured rows into {label: value} for Layer 2.
+    Margin rows are excluded — they are calculated separately."""
     if result is None:
         result = {}
     for r in rows:
@@ -210,6 +215,16 @@ def _flatten_structured(rows: List[Dict], result: Optional[Dict] = None) -> Dict
                     pass
         _flatten_structured(r.get("children", []), result)
     return result
+
+
+def _strip_margins(rows: List[Dict]) -> List[Dict]:
+    """Recursively remove margin-type rows from the structured tree."""
+    cleaned = []
+    for r in rows:
+        if r.get("type") == "margin":
+            continue
+        cleaned.append({**r, "children": _strip_margins(r.get("children", []))})
+    return cleaned
 
 
 def _iter_all_rows(rows: List[Dict]):
