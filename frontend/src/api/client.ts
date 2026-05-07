@@ -278,3 +278,33 @@ export async function saveLayer1Template(
   await handleResponse<{ success: boolean }>(res)
 }
 
+// ── Statement tab configs ─────────────────────────────────────────────────────
+
+export interface StatementTabConfig {
+  tab: string
+}
+
+// GET /companies/{id}/statement-tab-configs
+export async function getStatementTabConfigs(
+  companyId: number,
+): Promise<Record<string, StatementTabConfig>> {
+  const res = await fetch(`${API_BASE}/companies/${companyId}/statement-tab-configs`)
+  return handleResponse(res)
+}
+
+// POST /companies/{id}/statement-tab-configs/{statement_type}
+export async function saveStatementTabConfig(
+  companyId: number,
+  statementType: string,
+  config: StatementTabConfig,
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/companies/${companyId}/statement-tab-configs/${statementType}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    },
+  )
+  await handleResponse<{ success: boolean }>(res)
+}

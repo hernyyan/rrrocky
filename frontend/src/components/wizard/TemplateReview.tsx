@@ -16,9 +16,10 @@ interface Props {
   statementType: string
   companyId: number
   onSaved: () => void
+  onCancel: () => void
 }
 
-export default function TemplateReview({ structured, statementType, companyId, onSaved }: Props) {
+export default function TemplateReview({ structured, statementType, companyId, onSaved, onCancel }: Props) {
   const [rows, setRows] = useState<Layer1TemplateRow[]>(structured.rows)
   const [waterfall, setWaterfall] = useState<WaterfallStep[] | null>(
     statementType === 'income_statement' ? (structured.waterfall ?? []) : null
@@ -71,17 +72,25 @@ export default function TemplateReview({ structured, statementType, companyId, o
               <span className="font-mono bg-gray-100 px-1 rounded">IND</span> promotes to SUM with child selection.
             </p>
           </div>
-          <div className="shrink-0 flex flex-col items-end gap-1.5">
+          <div className="shrink-0 flex items-center gap-2">
             <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] text-white disabled:opacity-50"
-              style={{ backgroundColor: '#030213', fontWeight: 500 }}
+              onClick={onCancel}
+              className="px-3 py-1.5 rounded text-[12px] border border-border text-muted-foreground hover:bg-gray-50"
             >
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-              Save Template
+              ← Back to upload
             </button>
-            {error && <p className="text-[11px] text-red-600">{error}</p>}
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] text-white disabled:opacity-50"
+                style={{ backgroundColor: '#030213', fontWeight: 500 }}
+              >
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Save Template
+              </button>
+              {error && <p className="text-[11px] text-red-600">{error}</p>}
+            </div>
           </div>
         </div>
 

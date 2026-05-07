@@ -44,7 +44,7 @@ def _cell_value(cell) -> Any:
 def extract_header_rows(
     filepath: str,
     sheet_name: str,
-    n_rows: int = 12,
+    n_rows: int = 20,
 ) -> str:
     """
     Open the workbook and return the first *n_rows* rows of *sheet_name* as a
