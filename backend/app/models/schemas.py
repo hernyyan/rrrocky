@@ -37,6 +37,7 @@ class Layer1Request(BaseModel):
     reportingPeriod: str
     companyId: Optional[int] = None
     fieldsFilter: Optional[List[str]] = None  # if set, only extract these fields
+    sharedTab: bool = False  # True when multiple statement types share the same sheet
 
 
 class RecalculateRequest(BaseModel):

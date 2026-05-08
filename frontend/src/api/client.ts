@@ -69,6 +69,7 @@ export async function runLayer1(
   reportingPeriod: string,
   fieldsFilter?: string[],
   companyId?: number | null,
+  sharedTab?: boolean,
 ): Promise<Layer1Response> {
   const res = await fetch(`${API_BASE}/layer1/run`, {
     method: 'POST',
@@ -80,6 +81,7 @@ export async function runLayer1(
       reportingPeriod,
       ...(companyId != null ? { companyId } : {}),
       ...(fieldsFilter && fieldsFilter.length > 0 ? { fieldsFilter } : {}),
+      ...(sharedTab ? { sharedTab: true } : {}),
     }),
   })
   return handleResponse<Layer1Response>(res)

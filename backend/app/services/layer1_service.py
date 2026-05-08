@@ -45,6 +45,7 @@ class Layer1Service:
         filepath: str,
         sheet_name: str,
         reporting_period: str,
+        shared_tab: bool = False,
     ) -> Dict[str, Any]:
         """
         Run the 4-step extraction pipeline for a single sheet.
@@ -69,13 +70,20 @@ class Layer1Service:
         header_text = extract_header_rows(filepath, sheet_name, n_rows=150)
 
         # ── Step B: AI column identifier ─────────────────────────────────────
+        # When multiple statements share the same tab, pass statement_type so
+        # the AI can locate the correct section and return row boundaries.
+        # For a dedicated single-statement tab, skip section detection entirely.
+        col_prompt_vars: Dict[str, Any] = {
+            "reporting_period": reporting_period,
+            "header_rows": header_text,
+            # Pass statement_type only for shared tabs so the AI locates the section.
+            # Pass empty string for dedicated tabs so the AI skips section detection.
+            "statement_type": normalized if shared_tab else "",
+        }
+
         col_response = self.claude.call_claude(
             "layer1_column_identifier",
-            {
-                "reporting_period": reporting_period,
-                "statement_type": normalized,
-                "header_rows": header_text,
-            },
+            col_prompt_vars,
             model,
             max_tokens=1024,
         )
@@ -84,12 +92,14 @@ class Layer1Service:
         source_scaling: str = str(col_info.get("source_scaling", "actual_dollars"))
         skip_rows: int = int(col_info.get("skip_rows", 0))
         column_identified: str = str(col_info.get("period_matched", col_info.get("column_letter", "")))
-        section_start_row: int = int(col_info.get("section_start_row", 0))
-        section_end_row: int = int(col_info.get("section_end_row", 0))
+
+        # Section bounds only meaningful when shared_tab=True
+        section_start_row: int = int(col_info.get("section_start_row", 0)) if shared_tab else 0
+        section_end_row: int = int(col_info.get("section_end_row", 0)) if shared_tab else 0
 
         logger.info(
-            "[Layer1] %s: col=%d scaling=%s section=%s-%s",
-            normalized, column_index, source_scaling,
+            "[Layer1] %s: col=%d scaling=%s shared=%s section=%s-%s",
+            normalized, column_index, source_scaling, shared_tab,
             section_start_row or "auto", section_end_row or "end",
         )
 

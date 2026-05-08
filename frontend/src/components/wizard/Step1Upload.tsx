@@ -582,11 +582,17 @@ export default function Step1Upload() {
     const stmtTypes = ['income_statement', 'balance_sheet', 'cash_flow_statement'] as const
     const results: Record<string, Awaited<ReturnType<typeof runLayer1>>> = {}
 
+    // Determine which tabs are shared across multiple statement types
+    const assignedTabs = stmtTypes.map(s => assignments[s]).filter(Boolean)
+    const tabCounts: Record<string, number> = {}
+    for (const t of assignedTabs) tabCounts[t] = (tabCounts[t] ?? 0) + 1
+
     const tasks = stmtTypes
       .filter(stmtType => assignments[stmtType])
       .map(async (stmtType) => {
         const tab = assignments[stmtType]
-        const result = await runLayer1(sessionId!, tab, stmtType, reportingPeriod, undefined, companyId)
+        const sharedTab = tabCounts[tab] > 1
+        const result = await runLayer1(sessionId!, tab, stmtType, reportingPeriod, undefined, companyId, sharedTab)
         results[stmtType] = result
         mergeLayer1Result(stmtType, {
           lineItems: result.lineItems,

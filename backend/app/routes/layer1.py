@@ -66,6 +66,7 @@ def run_layer1(
             filepath=filepath,
             sheet_name=request.sheetName,
             reporting_period=request.reportingPeriod,
+            shared_tab=request.sharedTab,
         )
     except FileNotFoundError as e:
         raise HTTPException(status_code=500, detail=str(e))
