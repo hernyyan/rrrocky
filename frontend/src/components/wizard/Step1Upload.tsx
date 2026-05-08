@@ -16,11 +16,8 @@ import {
   checkExistingReview,
   continuePreviousReview,
   saveLayer1Template,
-  getStatementTabConfigs,
-  saveStatementTabConfig,
 } from '../../api/client'
 import { API_BASE } from '../../api/client'
-import { applyStatementTabConfig } from '../../utils/fuzzyMatch'
 import type { Company, CompanyContextStatus, Layer1Result, Layer1Template, Layer1TemplateRow } from '../../types'
 import {
   Upload,
@@ -266,25 +263,6 @@ export default function Step1Upload() {
       ? findFuzzyMatches(comboSearch.trim(), companies).filter((c) => !filteredIds.has(c.id))
       : []
 
-  async function loadSavedTabConfigs(cid: number, availableTabs: string[]) {
-    if (!cid || availableTabs.length === 0) return
-    try {
-      const configs = await getStatementTabConfigs(cid)
-      const updates: Partial<typeof assignments> = {}
-      for (const [stmtType, saved] of Object.entries(configs)) {
-        const matched = applyStatementTabConfig(saved, availableTabs)
-        if (matched) {
-          updates[stmtType as keyof typeof assignments] = matched
-        }
-      }
-      if (Object.keys(updates).length > 0) {
-        setAssignments((prev) => ({ ...prev, ...updates }))
-      }
-    } catch {
-      // non-fatal
-    }
-  }
-
   function handleSelectCompany(company: Company) {
     setCompanyName(company.name)
     setCompanyId(company.id)
@@ -296,7 +274,6 @@ export default function Step1Upload() {
         .then(setContextStatus)
         .catch(() => setContextStatus(null))
         .finally(() => setContextLoading(false))
-      loadSavedTabConfigs(company.id, sheetNames)
     }
   }
 
@@ -421,7 +398,6 @@ export default function Step1Upload() {
         setAssignments({ income_statement: '', balance_sheet: '', cash_flow_statement: '' })
         setExtractionStatus('idle')
         setExtractionError(null)
-        if (companyId) loadSavedTabConfigs(companyId, response.sheetNames)
       }
 
       setStatus({
@@ -639,16 +615,6 @@ export default function Step1Upload() {
         setStatus({ type: 'error', message: msg })
       }
       setExtractionStatus('done')
-
-      // Save tab configs for all extracted statements
-      if (companyId) {
-        for (const stmtType of ['income_statement', 'balance_sheet', 'cash_flow_statement'] as const) {
-          const tab = assignments[stmtType]
-          if (tab) {
-            saveStatementTabConfig(companyId, stmtType, { tab }).catch(() => {})
-          }
-        }
-      }
 
       // Handle template review for IS (if companyId is set)
       if (companyId) {

@@ -6,14 +6,13 @@ import TemplateFieldList from './TemplateFieldList'
 import RuleWriter from './RuleWriter'
 import CompanyDataTable from './CompanyDataTable'
 import Layer1TemplatesTab from './Layer1TemplatesTab'
-import { getStatementTabConfigs, StatementTabConfig } from '../../api/client'
 
 interface Props {
   companyId: number
   onBack: () => void
 }
 
-type Tab = 'data' | 'corrections' | 'datasets' | 'l1_templates' | 'tab_config'
+type Tab = 'data' | 'corrections' | 'datasets' | 'l1_templates'
 
 function formatVal(v: unknown): string {
   if (v === null || v === undefined) return '—'
@@ -31,7 +30,6 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
   const [contextContent, setContextContent] = useState<string>('')
   const [periods, setPeriods] = useState<CompanyPeriodData[]>([])
   const [corrections, setCorrections] = useState<AdminCorrection[]>([])
-  const [tabConfigs, setTabConfigs] = useState<Record<string, StatementTabConfig>>({})
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('data')
   const [selectedField, setSelectedField] = useState<{ name: string; statementType: string } | null>(null)
@@ -48,13 +46,11 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
       adminGetCompanyContext(companyId),
       adminGetCompanyData(companyId),
       adminGetCompanyCorrections(companyId),
-      getStatementTabConfigs(companyId).catch(() => ({})),
-    ]).then(([ctx, data, corr, configs]) => {
+    ]).then(([ctx, data, corr]) => {
       setContext(ctx)
       setContextContent(ctx.content ?? '')
       setPeriods(data.periods)
       setCorrections(corr.corrections)
-      setTabConfigs(configs as Record<string, StatementTabConfig>)
     }).catch(console.error).finally(() => setLoading(false))
   }, [companyId])
 
@@ -96,7 +92,6 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
     { key: 'corrections', label: `Corrections (${corrections.length})` },
     { key: 'datasets', label: 'Datasets' },
     { key: 'l1_templates', label: 'L1 Templates' },
-    { key: 'tab_config', label: 'Tab Config' },
   ]
 
   return (
@@ -273,33 +268,6 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
 
           {activeTab === 'l1_templates' && (
             <Layer1TemplatesTab companyId={companyId} />
-          )}
-
-          {activeTab === 'tab_config' && (
-            <div className="h-full overflow-auto p-4">
-              {Object.keys(tabConfigs).length === 0 ? (
-                <p className="text-[12px] text-muted-foreground">No tab configs saved for this company.</p>
-              ) : (
-                <div className="space-y-4">
-                  {(['income_statement', 'balance_sheet', 'cash_flow_statement'] as const).map((stmtType) => {
-                    const cfg = tabConfigs[stmtType]
-                    if (!cfg) return null
-                    const label = stmtType === 'income_statement' ? 'Income Statement'
-                      : stmtType === 'balance_sheet' ? 'Balance Sheet'
-                      : 'Cash Flow Statement'
-                    return (
-                      <div key={stmtType} className="border border-border rounded-lg p-3 bg-white">
-                        <p className="text-[12px] text-muted-foreground mb-2" style={{ fontWeight: 600 }}>{label}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-muted-foreground">Sheet:</span>
-                          <span className="px-2 py-0.5 rounded bg-gray-100 text-[12px] font-mono">{cfg.tab}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
           )}
         </div>
       </div>

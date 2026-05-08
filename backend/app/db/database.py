@@ -135,31 +135,6 @@ CREATE TABLE IF NOT EXISTS layer1_templates (
 );
 """
 
-_SQLITE_CREATE_STATEMENT_TAB_CONFIGS = """
-CREATE TABLE IF NOT EXISTS statement_tab_configs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER NOT NULL,
-    statement_type TEXT NOT NULL,
-    config JSON NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (company_id) REFERENCES companies(id),
-    UNIQUE(company_id, statement_type)
-);
-"""
-
-_PG_CREATE_STATEMENT_TAB_CONFIGS = """
-CREATE TABLE IF NOT EXISTS statement_tab_configs (
-    id SERIAL PRIMARY KEY,
-    company_id INTEGER NOT NULL,
-    statement_type TEXT NOT NULL,
-    config JSONB NOT NULL,
-    updated_at TIMESTAMP DEFAULT NOW(),
-    FOREIGN KEY (company_id) REFERENCES companies(id),
-    UNIQUE(company_id, statement_type)
-);
-"""
-
-
 # ── Idempotent migrations for pre-existing databases ─────────────────────────
 
 _MIGRATIONS = [
@@ -195,7 +170,6 @@ def init_db() -> None:
             _SQLITE_CREATE_COMPANIES,
             _SQLITE_CREATE_CORRECTIONS,
             _SQLITE_CREATE_LAYER1_TEMPLATES,
-            _SQLITE_CREATE_STATEMENT_TAB_CONFIGS,
         ]
     else:
         ddl_statements = [
@@ -203,7 +177,6 @@ def init_db() -> None:
             _PG_CREATE_COMPANIES,
             _PG_CREATE_CORRECTIONS,
             _PG_CREATE_LAYER1_TEMPLATES,
-            _PG_CREATE_STATEMENT_TAB_CONFIGS,
         ]
 
     # Each CREATE TABLE runs in its own transaction so a failed migration
