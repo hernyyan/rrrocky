@@ -24,14 +24,12 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.config import DATA_DIR, LAYER_A_MODEL, LAYER_B_MODEL
+from app.config import LAYER_A_MODEL, LAYER_B_MODEL
 from app.services.claude_service import get_claude_service
 from app.utils.text_utils import markdown_body_word_count, COMPANY_CONTEXT_WORD_LIMIT, COMPANY_CONTEXT_WORD_WARNING
 
 logger = logging.getLogger(__name__)
 
-CHANGELOG_PATH = DATA_DIR / "company_context_changelog.jsonl"
-ALERTS_PATH = DATA_DIR / "alerts.jsonl"
 
 
 @dataclass
@@ -103,7 +101,7 @@ class CorrectionPipeline:
         try:
             layer_a = self._run_layer_a(row, claude)
         except Exception as exc:
-            self._append_changelog(_changelog_entry(
+            self._write_changelog(db, _changelog_entry(
                 timestamp, row, layer_a_instruction=None, referenced_fields=[],
                 action="SKIPPED", detail=f"Layer A failed: {exc}", section=None,
             ))
@@ -116,7 +114,7 @@ class CorrectionPipeline:
 
         # Step 3 — UNCLEAR check
         if "UNCLEAR" in layer_a.instruction:
-            self._append_changelog(_changelog_entry(
+            self._write_changelog(db, _changelog_entry(
                 timestamp, row, layer_a_instruction=layer_a.instruction,
                 referenced_fields=layer_a.referenced_fields,
                 action="SKIPPED", detail="Layer A could not generate instruction", section=None,
@@ -136,7 +134,7 @@ class CorrectionPipeline:
         try:
             layer_b = self._run_layer_b(layer_a, current_markdown, claude)
         except Exception as exc:
-            self._append_changelog(_changelog_entry(
+            self._write_changelog(db, _changelog_entry(
                 timestamp, row, layer_a_instruction=layer_a.instruction,
                 referenced_fields=layer_a.referenced_fields,
                 action="ERROR", detail=f"Layer B failed: {exc}", section=None,
@@ -151,20 +149,20 @@ class CorrectionPipeline:
         # Step 6 — Write context to DB (not yet committed — commits atomically with step 9)
         word_count = self._write_context(row.company_id, layer_b, db)
 
-        # Step 7 — Word count alert
+        # Step 7 — Word count alert (written to DB, commits atomically with step 9)
         alert_emitted = False
         if word_count > 0:
-            alert_emitted = self._check_word_count(word_count, row.company_id, row.company_name, timestamp)
+            alert_emitted = self._check_word_count(word_count, row.company_id, row.company_name, timestamp, db)
 
-        # Step 8 — Log changelog
+        # Step 8 — Log changelog (written to DB, commits atomically with step 9)
         section = _extract_section(layer_b.detail)
-        self._append_changelog(_changelog_entry(
+        self._write_changelog(db, _changelog_entry(
             timestamp, row, layer_a_instruction=layer_a.instruction,
             referenced_fields=layer_a.referenced_fields,
             action=layer_b.action, detail=layer_b.detail, section=section,
         ))
 
-        # Step 9 — Mark processed + commit (atomically commits step 6 context write)
+        # Step 9 — Mark processed + commit (atomically commits steps 6, 7, 8)
         self._mark_processed(correction_id, db)
 
         return PipelineResult(
@@ -320,28 +318,59 @@ class CorrectionPipeline:
         )
         db.commit()
 
-    def _append_changelog(self, entry: dict) -> None:
-        with CHANGELOG_PATH.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
+    def _write_changelog(self, db: Session, entry: dict) -> None:
+        """Step 8: Insert a changelog entry into the DB. Does NOT commit — caller commits."""
+        db.execute(
+            text("""
+                INSERT INTO correction_changelog
+                    (timestamp, company_id, company_name, correction_id,
+                     field_name, statement_type, layer_a_instruction,
+                     layer_a_referenced_fields, layer_b_action, layer_b_detail,
+                     markdown_section_affected, source)
+                VALUES
+                    (:ts, :cid, :cn, :corr_id, :fn, :st, :la_instr,
+                     :la_refs, :lb_action, :lb_detail, :section, :source)
+            """),
+            {
+                "ts": entry.get("timestamp", ""),
+                "cid": entry.get("company_id"),
+                "cn": entry.get("company_name"),
+                "corr_id": entry.get("correction_id"),
+                "fn": entry.get("field_name"),
+                "st": entry.get("statement_type"),
+                "la_instr": entry.get("layer_a_instruction"),
+                "la_refs": json.dumps(entry.get("layer_a_referenced_fields") or []),
+                "lb_action": entry.get("layer_b_action"),
+                "lb_detail": entry.get("layer_b_detail"),
+                "section": entry.get("markdown_section_affected"),
+                "source": entry.get("source", "pipeline"),
+            },
+        )
 
     def _check_word_count(
-        self, wc: int, company_id: int, company_name: str, timestamp: str,
+        self, wc: int, company_id: int, company_name: str, timestamp: str, db: Session,
     ) -> bool:
-        """Step 7: Emit an alert if over limit, log warning if approaching. Returns True if alert emitted."""
+        """Step 7: Insert alert to DB if over limit, log warning if approaching. Returns True if alert inserted."""
         if wc > COMPANY_CONTEXT_WORD_LIMIT:
             logger.warning(
                 "Company context for %s exceeds %d words (%d). Manual review recommended.",
                 company_name, COMPANY_CONTEXT_WORD_LIMIT, wc,
             )
-            alert = {
-                "timestamp": timestamp, "type": "context_overlength",
-                "company_id": company_id, "company_name": company_name,
-                "word_count": wc,
-                "message": f"Company context exceeds {COMPANY_CONTEXT_WORD_LIMIT:,} word limit. Manual review and condensing recommended.",
-                "status": "open",
-            }
-            with ALERTS_PATH.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(alert) + "\n")
+            db.execute(
+                text("""
+                    INSERT INTO context_alerts
+                        (timestamp, type, company_id, company_name, word_count, message, status)
+                    VALUES
+                        (:ts, 'context_overlength', :cid, :cn, :wc, :msg, 'open')
+                """),
+                {
+                    "ts": timestamp,
+                    "cid": company_id,
+                    "cn": company_name,
+                    "wc": wc,
+                    "msg": f"Company context exceeds {COMPANY_CONTEXT_WORD_LIMIT:,} word limit. Manual review and condensing recommended.",
+                },
+            )
             return True
         elif wc > COMPANY_CONTEXT_WORD_WARNING:
             logger.info(

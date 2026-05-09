@@ -1,9 +1,9 @@
 """
 Admin endpoints for alerts, changelog, and general fixes.
 
-GET /admin/changelog           — Entries from company_context_changelog.jsonl
-GET /admin/alerts              — Entries from alerts.jsonl (with duplicate scan)
-PUT /admin/alerts/update-status— Update alert status by line index
+GET /admin/changelog           — Entries from correction_changelog table
+GET /admin/alerts              — Entries from context_alerts table (with duplicate scan)
+PUT /admin/alerts/update-status— Update alert status by DB id
 GET /admin/general-fixes       — Rows from general_fixes.csv
 """
 import csv
@@ -13,10 +13,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.db.database import get_db
 from app.models.schemas import AlertStatusUpdateRequest
-from app.routes.admin_utils import ALERTS_PATH, CHANGELOG_PATH, GENERAL_FIXES_PATH, read_jsonl, scan_duplicate_companies
+from app.routes.admin_utils import GENERAL_FIXES_PATH, read_jsonl, scan_duplicate_companies
 
 router = APIRouter(prefix="/admin")
 
@@ -25,15 +26,55 @@ router = APIRouter(prefix="/admin")
 def admin_changelog(
     company_id: Optional[int] = Query(default=None),
     limit: int = Query(default=50, ge=1),
+    db: Session = Depends(get_db),
 ):
-    """Return entries from company_context_changelog.jsonl, newest first."""
-    entries = read_jsonl(CHANGELOG_PATH)
-
+    """Return entries from correction_changelog table, newest first."""
     if company_id is not None:
-        entries = [e for e in entries if e.get("company_id") == company_id]
+        rows = db.execute(
+            text("""
+                SELECT id, timestamp, company_id, company_name, correction_id,
+                       field_name, statement_type, layer_a_instruction,
+                       layer_a_referenced_fields, layer_b_action, layer_b_detail,
+                       markdown_section_affected, source
+                FROM correction_changelog
+                WHERE company_id = :cid
+                ORDER BY id DESC
+                LIMIT :limit
+            """),
+            {"cid": company_id, "limit": limit},
+        ).fetchall()
+    else:
+        rows = db.execute(
+            text("""
+                SELECT id, timestamp, company_id, company_name, correction_id,
+                       field_name, statement_type, layer_a_instruction,
+                       layer_a_referenced_fields, layer_b_action, layer_b_detail,
+                       markdown_section_affected, source
+                FROM correction_changelog
+                ORDER BY id DESC
+                LIMIT :limit
+            """),
+            {"limit": limit},
+        ).fetchall()
 
-    entries.reverse()
-    entries = entries[:limit]
+    entries = []
+    for r in rows:
+        entry = {
+            "id": r[0],
+            "timestamp": r[1],
+            "company_id": r[2],
+            "company_name": r[3],
+            "correction_id": r[4],
+            "field_name": r[5],
+            "statement_type": r[6],
+            "layer_a_instruction": r[7],
+            "layer_a_referenced_fields": _parse_json_field(r[8]),
+            "layer_b_action": r[9],
+            "layer_b_detail": r[10],
+            "markdown_section_affected": r[11],
+            "source": r[12],
+        }
+        entries.append(entry)
 
     return {"total_entries": len(entries), "entries": entries}
 
@@ -46,40 +87,62 @@ def admin_alerts(
     """Return all alerts. Runs duplicate company scan on each call to detect new duplicates."""
     scan_duplicate_companies(db)
 
-    entries = read_jsonl(ALERTS_PATH)
-
-    for e in entries:
-        if "resolved" in e and "status" not in e:
-            e["status"] = "resolved" if e["resolved"] else "open"
-
-    for i, e in enumerate(entries):
-        e["_file_index"] = i
-
     if status_filter and status_filter != "all":
-        entries = [e for e in entries if e.get("status") == status_filter]
+        rows = db.execute(
+            text("""
+                SELECT id, timestamp, type, company_id, company_name,
+                       word_count, message, status
+                FROM context_alerts
+                WHERE status = :status
+                ORDER BY id DESC
+            """),
+            {"status": status_filter},
+        ).fetchall()
+    else:
+        rows = db.execute(
+            text("""
+                SELECT id, timestamp, type, company_id, company_name,
+                       word_count, message, status
+                FROM context_alerts
+                ORDER BY id DESC
+            """),
+        ).fetchall()
 
-    entries.reverse()
+    alerts = []
+    for r in rows:
+        alerts.append({
+            "id": r[0],
+            "_file_index": r[0],  # backward compat — frontend uses _file_index as the update key
+            "timestamp": r[1],
+            "type": r[2],
+            "company_id": r[3],
+            "company_name": r[4],
+            "word_count": r[5],
+            "message": r[6],
+            "status": r[7],
+        })
 
-    return {"total_alerts": len(entries), "alerts": entries}
+    return {"total_alerts": len(alerts), "alerts": alerts}
 
 
 @router.put("/alerts/update-status")
-def admin_update_alert_status(request: AlertStatusUpdateRequest):
-    """Update the status of an alert by its line index in alerts.jsonl."""
-    entries = read_jsonl(ALERTS_PATH)
-
-    if request.index < 0 or request.index >= len(entries):
-        raise HTTPException(status_code=404, detail="Alert index out of range.")
-
+def admin_update_alert_status(
+    request: AlertStatusUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    """Update the status of an alert by its DB id (sent as 'index' for backward compat)."""
     valid_statuses = {"open", "resolved", "fixed"}
     if request.new_status not in valid_statuses:
         raise HTTPException(status_code=422, detail=f"Status must be one of: {valid_statuses}")
 
-    entries[request.index]["status"] = request.new_status
+    result = db.execute(
+        text("UPDATE context_alerts SET status = :status WHERE id = :id"),
+        {"status": request.new_status, "id": request.index},
+    )
+    db.commit()
 
-    with ALERTS_PATH.open("w", encoding="utf-8") as f:
-        for entry in entries:
-            f.write(json.dumps(entry) + "\n")
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Alert not found.")
 
     return {"success": True, "index": request.index, "new_status": request.new_status}
 
@@ -114,3 +177,17 @@ def admin_general_fixes(
     rows = rows[:limit]
 
     return {"total_entries": len(rows), "entries": rows}
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _parse_json_field(value) -> list:
+    """Parse a JSON string field that may be None or already a list."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return []
