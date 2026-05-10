@@ -8,6 +8,7 @@ import { runLayer2, getTemplate } from '../../api/client'
 import { IS_TEMPLATE_FIELDS, BS_TEMPLATE_FIELDS } from '../../mocks/mockData'
 import { formatFieldValue } from '../../utils/formatters'
 import { BOLD_FIELDS, ITALIC_FIELDS, isIndented } from '../../utils/templateStyling'
+import { getFailingFieldNames } from '../../utils/finalizeRows'
 import { useCorrections } from '../../hooks/useCorrections'
 import type { Correction, Layer2Result, TemplateResponse, TemplateSection } from '../../types'
 import {
@@ -74,6 +75,7 @@ function buildTemplateRows(
 ) {
   type Row = React.ComponentProps<typeof DataTable>['rows'][number]
   const rows: Row[] = []
+  const failingFields = getFailingFieldNames(layer2)
 
   rows.push({ label: statementLabel, value: null, isStatementHeader: true })
 
@@ -94,10 +96,7 @@ function buildTemplateRows(
         : null
 
       const isFlagged = layer2?.flaggedFields.includes(field) ?? false
-      const fieldChecks = layer2?.fieldValidations?.[field] ?? []
-      const hasValidationFail = fieldChecks.some(
-        (checkName) => layer2?.validation[checkName]?.status === 'FAIL',
-      )
+      const hasValidationFail = failingFields.has(field)
       // Highlight the actively-edited field in amber when pending
       const isBeingEdited = isPending && field === selectedCell
 
