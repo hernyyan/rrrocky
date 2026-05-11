@@ -3,7 +3,7 @@
  *
  * Owns: pdfActiveTab, pdfExtracting
  * Depends on (passed in): sessionId, reportingPeriod, companyId, companyName,
- *   pdfPageAssignments, mergeLayer1Result, setStatus, setDuplicateCheck, setPendingExtraction
+ *   pdfPageAssignments, mergeLayer1Result, setStatus, checkBeforeRun
  */
 import { useState } from 'react'
 import { runLayer1Pdf } from '../api/client'
