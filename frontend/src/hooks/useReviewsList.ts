@@ -13,7 +13,6 @@
  */
 import { useEffect, useState } from 'react'
 import { adminGetReviews, adminDeleteReview, AdminReview } from '../components/admin/AdminApiClient'
-import { useTableSort } from './useTableSort'
 
 export type SortField = 'company_name' | 'reporting_period' | 'status' | 'corrections_count' | 'created_at'
 export type CorrectionsFilter = 'all' | 'has' | 'none'
@@ -41,7 +40,8 @@ export function useReviewsList() {
   const [statusFilter, setStatusFilter] = useState('')
   const [companyFilter, setCompanyFilter] = useState('')
   const [correctionsFilter, setCorrectionsFilter] = useState<CorrectionsFilter>('all')
-  const { sortField, sortDir, handleSort } = useTableSort<SortField>('created_at', 'desc', ['created_at'])
+  const [sortField, setSortField] = useState<SortField>('created_at')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
 
@@ -72,6 +72,15 @@ export function useReviewsList() {
     } finally {
       setDeleting(null)
       setConfirmDelete(null)
+    }
+  }
+
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDir(field === 'created_at' ? 'desc' : 'asc')
     }
   }
 

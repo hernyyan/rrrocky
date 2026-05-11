@@ -14,7 +14,6 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { adminGetCompanies, adminCreateCompany, adminDeleteCompany, AdminCompany } from '../components/admin/AdminApiClient'
-import { useTableSort } from './useTableSort'
 
 export type CompanySortField = 'name' | 'context_word_count' | 'total_corrections'
 
@@ -25,9 +24,8 @@ export function useCompanyList() {
   const [adding, setAdding] = useState(false)
   const [addText, setAddText] = useState('')
   const [addSaving, setAddSaving] = useState(false)
-  const { sortField, sortDir, handleSort } = useTableSort<CompanySortField>(
-    'name', 'asc', ['context_word_count', 'total_corrections'],
-  )
+  const [sortField, setSortField] = useState<CompanySortField>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const addInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -78,6 +76,15 @@ export function useCompanyList() {
       setCompanies((prev) => prev.filter((c) => c.id !== company.id))
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete company')
+    }
+  }
+
+  function handleSort(field: CompanySortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDir(field === 'name' ? 'asc' : 'desc')
     }
   }
 
