@@ -1,23 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { adminGetChangelog } from '../api/client'
+import { useFetchData } from './useFetchData'
 
 export function useChangelogList() {
-  const [entries, setEntries] = useState<Record<string, unknown>[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const { data, loading } = useFetchData(() => adminGetChangelog({ limit: 200 }))
   const [expandedCell, setExpandedCell] = useState<{ column: string; value: string } | null>(null)
 
-  useEffect(() => {
-    setLoading(true)
-    adminGetChangelog({ limit: 200 })
-      .then((data) => {
-        setEntries(data.entries)
-        setTotal(data.total_entries)
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
-
+  const entries = data?.entries ?? []
+  const total = data?.total_entries ?? 0
   const columns = entries.length > 0 ? Object.keys(entries[0]) : []
 
   return { entries, total, loading, columns, expandedCell, setExpandedCell }
