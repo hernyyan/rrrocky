@@ -15,6 +15,20 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 
+def get_company_or_404(company_id: int, db: Session) -> tuple[int, str, str]:
+    """
+    Fetch (id, name, context) for a company by primary key.
+    Raises HTTPException 404 if no row exists.
+    """
+    row = db.execute(
+        text("SELECT id, name, context FROM companies WHERE id = :id"),
+        {"id": company_id},
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Company {company_id} not found.")
+    return row[0], row[1], row[2] or ""
+
+
 def normalize_company_name(name: str) -> str:
     """Strip to lowercase alphanumeric for fuzzy duplicate detection."""
     return re.sub(r'[^a-z0-9]', '', name.lower())

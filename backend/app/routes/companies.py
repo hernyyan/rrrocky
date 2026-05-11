@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from app.db.database import get_db
 from app.models.schemas import CompanyCreate, CompanyResponse, ReprocessResponse, ReprocessCorrectionResult
-from app.services.company_service import create_company as _create_company
+from app.services.company_service import create_company as _create_company, get_company_or_404
 from app.utils.text_utils import markdown_body_word_count, count_context_rules
 
 router = APIRouter()
@@ -35,15 +35,7 @@ def create_company(request: CompanyCreate, db: Session = Depends(get_db)):
 @router.get("/companies/{company_id}/context-status")
 def get_context_status(company_id: int, db: Session = Depends(get_db)):
     """Check if a company has a context with actual rules."""
-    row = db.execute(
-        text("SELECT name, context FROM companies WHERE id = :id"),
-        {"id": company_id},
-    ).fetchone()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="Company not found")
-
-    company_name, context = row[0], row[1] or ""
+    _, company_name, context = get_company_or_404(company_id, db)
     rule_count = count_context_rules(context)
     has_rules = rule_count > 0
     wc = markdown_body_word_count(context) if has_rules else 0
@@ -63,14 +55,7 @@ def reprocess_corrections(company_id: int, db: Session = Depends(get_db)):
     Developer endpoint: resets the company's context and changelog entries,
     then reruns the Layer A → Layer B pipeline for all company_specific corrections.
     """
-    row = db.execute(
-        text("SELECT id, name FROM companies WHERE id = :id"),
-        {"id": company_id},
-    ).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail=f"Company {company_id} not found.")
-
-    company_name: str = row[1]
+    _, company_name, _ = get_company_or_404(company_id, db)
 
     from app.services.company_context_service import reset_company_for_reprocessing, process_pending_corrections
     reset_company_for_reprocessing(company_id, company_name, db)

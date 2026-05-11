@@ -18,7 +18,7 @@ from sqlalchemy import text
 from app.config import COMPANY_DATASETS_DIR
 from app.db.database import get_db
 from app.models.schemas import AdminRenameCompanyRequest
-from app.services.company_service import create_company as _create_company
+from app.services.company_service import create_company as _create_company, get_company_or_404
 from app.utils.json_utils import deserialize_dict
 from app.utils.text_utils import markdown_body_word_count
 
@@ -64,12 +64,7 @@ def admin_list_companies(db: Session = Depends(get_db)):
 @router.get("/company-data/{company_id}")
 def admin_company_data(company_id: int, db: Session = Depends(get_db)):
     """Return finalized L1/L2 data for a company — latest load per period, chronological."""
-    company = db.execute(
-        text("SELECT name FROM companies WHERE id = :id"),
-        {"id": company_id},
-    ).fetchone()
-    if not company:
-        raise HTTPException(status_code=404, detail="Company not found.")
+    _, company_name, _ = get_company_or_404(company_id, db)
 
     rows = db.execute(
         text("""
@@ -86,7 +81,7 @@ def admin_company_data(company_id: int, db: Session = Depends(get_db)):
             WHERE r.company_name = :name AND r.final_output IS NOT NULL
             ORDER BY r.reporting_period ASC
         """),
-        {"name": company[0]},
+        {"name": company_name},
     ).fetchall()
 
     periods = []
@@ -101,7 +96,7 @@ def admin_company_data(company_id: int, db: Session = Depends(get_db)):
             "created_at": str(row[6]) if row[6] else None,
         })
 
-    return {"company_id": company_id, "company_name": company[0], "periods": periods}
+    return {"company_id": company_id, "company_name": company_name, "periods": periods}
 
 
 @router.get("/company-corrections/{company_id}")
@@ -149,14 +144,7 @@ def admin_rename_company(
     if not new_name:
         raise HTTPException(status_code=422, detail="Name cannot be empty.")
 
-    row = db.execute(
-        text("SELECT name, context FROM companies WHERE id = :id"),
-        {"id": company_id},
-    ).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Company not found.")
-
-    old_name, old_context = row[0], row[1] or ""
+    _, old_name, old_context = get_company_or_404(company_id, db)
 
     existing = db.execute(
         text("SELECT id FROM companies WHERE LOWER(name) = LOWER(:name) AND id != :id"),
@@ -208,14 +196,7 @@ def admin_create_company(
 @router.delete("/companies/{company_id}")
 def admin_delete_company(company_id: int, db: Session = Depends(get_db)):
     """Delete a company and all its associated data (corrections, datasets)."""
-    row = db.execute(
-        text("SELECT name FROM companies WHERE id = :id"),
-        {"id": company_id},
-    ).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Company not found.")
-
-    company_name = row[0]
+    _, company_name, _ = get_company_or_404(company_id, db)
 
     db.execute(
         text("DELETE FROM company_specific_corrections WHERE company_id = :id"),
