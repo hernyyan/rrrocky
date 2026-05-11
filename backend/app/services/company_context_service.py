@@ -131,15 +131,15 @@ def write_rule(
     detail = layer_b_parsed.get("detail", "")
     updated_markdown = layer_b_parsed.get("updated_markdown")
 
-    # ── Persist: update context if not discarded ─────────────────────────────
+    # ── Persist: context update + changelog in a single transaction ──────────
+    # Both writes committed together so changelog is never missing if context
+    # update succeeds (or vice versa).
     if updated_markdown and action != "DISCARD":
         db.execute(
             text("UPDATE companies SET context = :ctx WHERE id = :id"),
             {"ctx": updated_markdown, "id": company_id},
         )
-        db.commit()
 
-    # ── Persist: always log to changelog ─────────────────────────────────────
     db.execute(
         text("""
             INSERT INTO correction_changelog
