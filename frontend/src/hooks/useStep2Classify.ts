@@ -28,7 +28,6 @@ import type {
   Layer2Result,
   TemplateResponse,
   TemplateSection,
-  StatementType,
 } from '../types'
 
 interface UseStep2ClassifyOptions {
@@ -40,7 +39,7 @@ interface UseStep2ClassifyOptions {
 
 export interface Step2ClassifyData {
   template: TemplateResponse | null
-  selectedCellType: StatementType | null
+  selectedCellType: 'income_statement' | 'balance_sheet' | 'cash_flow_statement' | null
   isLayer2: Layer2Result | null
   bsLayer2: Layer2Result | null
   cfsLayer2: Layer2Result | null
@@ -87,15 +86,15 @@ export function useStep2Classify({
 
   const isAllFields = template?.income_statement.allFields ?? IS_TEMPLATE_FIELDS
 
-  const fieldStatementMap = useMemo<Record<string, StatementType>>(() => {
-    const map: Record<string, StatementType> = {}
+  const fieldStatementMap = useMemo<Record<string, 'income_statement' | 'balance_sheet' | 'cash_flow_statement'>>(() => {
+    const map: Record<string, 'income_statement' | 'balance_sheet' | 'cash_flow_statement'> = {}
     for (const f of (template?.balance_sheet.allFields ?? BS_TEMPLATE_FIELDS)) map[f] = 'balance_sheet'
     for (const f of (template?.cash_flow_statement?.allFields ?? [])) map[f] = 'cash_flow_statement'
     for (const f of isAllFields) map[f] = 'income_statement'
     return map
   }, [template])
 
-  const selectedCellType: StatementType | null =
+  const selectedCellType: 'income_statement' | 'balance_sheet' | 'cash_flow_statement' | null =
     selectedCell ? (fieldStatementMap[selectedCell] ?? 'balance_sheet') : null
 
   const activeLayer2: Layer2Result | null = selectedCellType

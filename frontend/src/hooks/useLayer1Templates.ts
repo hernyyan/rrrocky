@@ -11,9 +11,9 @@
  */
 import { useEffect, useState } from 'react'
 import { getLayer1Template, saveLayer1Template } from '../api/client'
-import type { Layer1Template, Layer1TemplateRow, WaterfallStep, StatementType } from '../types'
+import type { Layer1Template, Layer1TemplateRow, WaterfallStep } from '../types'
 
-export type StmtTab = StatementType
+export type StmtTab = 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
 
 const ALL_STMTS: StmtTab[] = ['income_statement', 'balance_sheet', 'cash_flow_statement']
 

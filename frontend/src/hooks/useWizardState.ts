@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode, createElement } from 'react'
-import type { WizardState, Layer1Result, Layer2Result, Correction, StatementType } from '../types'
+import type { WizardState, Layer1Result, Layer2Result, Correction } from '../types'
 import {
   MOCK_LAYER2_INCOME_STATEMENT,
   MOCK_LAYER2_BALANCE_SHEET,
@@ -29,7 +29,7 @@ interface WizardContextType extends WizardState {
   setUploadFileType: (type: 'excel' | 'pdf' | null) => void
   setPdfPageCount: (count: number) => void
   setPdfUrl: (url: string | null) => void
-  setPdfPageAssignments: (assignments: Record<number, StatementType>) => void
+  setPdfPageAssignments: (assignments: Record<number, 'income_statement' | 'balance_sheet' | 'cash_flow_statement'>) => void
   resetWizard: () => void
   loadMockStep2: () => void
 }
@@ -211,7 +211,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, pdfUrl: url }))
   }
 
-  function setPdfPageAssignments(assignments: Record<number, StatementType>) {
+  function setPdfPageAssignments(assignments: Record<number, 'income_statement' | 'balance_sheet' | 'cash_flow_statement'>) {
     setState((s) => ({ ...s, pdfPageAssignments: assignments }))
   }
 

@@ -1,9 +1,6 @@
 // All TypeScript interfaces for the Financial Analysis Platform
 
 export type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
-export type StatementType = 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
-export type DuplicateCheck = { exists: boolean; sessionId: string; finalizedAt: string | null } | null
-export type PendingExtraction = { type: 'pdf' } | { type: 'global' } | null
 
 export interface WizardState {
   // Metadata
@@ -26,7 +23,7 @@ export interface WizardState {
   // Step 1 — PDF
   pdfPageCount: number
   pdfUrl: string | null
-  pdfPageAssignments: Record<number, StatementType>
+  pdfPageAssignments: Record<number, 'income_statement' | 'balance_sheet' | 'cash_flow_statement'>
 
   // Step 2
   layer2Results: Record<string, Layer2Result>

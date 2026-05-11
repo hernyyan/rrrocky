@@ -9,7 +9,9 @@
  */
 import { useState } from 'react'
 import { uploadFile, getCompanyContextStatus } from '../api/client'
-import type { CompanyContextStatus, Layer1Result, StatusMessage, StatementType } from '../types'
+import type { CompanyContextStatus, Layer1Result, StatusMessage } from '../types'
+
+type StmtType = 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
 
 interface UseFileUploadDeps {
   companyName: string
@@ -25,7 +27,7 @@ interface UseFileUploadDeps {
   setWorkbookUrl: (url: string | null) => void
   setPdfPageCount: (n: number) => void
   setPdfUrl: (url: string | null) => void
-  setPdfPageAssignments: (a: Record<number, StatementType>) => void
+  setPdfPageAssignments: (a: Record<number, StmtType>) => void
   // extraction hook resets
   resetExcelExtraction: () => void
   resetPdfExtraction: () => void

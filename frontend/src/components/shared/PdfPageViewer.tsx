@@ -3,14 +3,13 @@ import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import { FileText, Loader2, Minus, Plus } from 'lucide-react'
 import { usePdfViewer } from '../../hooks/usePdfViewer'
-import type { StatementType } from '../../types'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url,
 ).toString()
 
-type Assignment = StatementType | undefined
+type Assignment = 'income_statement' | 'balance_sheet' | 'cash_flow_statement' | undefined
 
 // Central mapping for statement-type → color. Single place to update if colors change.
 function assignmentClasses(a: Assignment) {
@@ -23,8 +22,8 @@ function assignmentClasses(a: Assignment) {
 interface PdfPageViewerProps {
   pdfUrl: string | null
   pageCount: number
-  pageAssignments: Record<number, StatementType>
-  activeStatementTab: StatementType
+  pageAssignments: Record<number, 'income_statement' | 'balance_sheet' | 'cash_flow_statement'>
+  activeStatementTab: 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
   onPageClick: (pageNumber: number) => void
 }
 
