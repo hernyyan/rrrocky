@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.config import LAYER_A_MODEL, LAYER_B_MODEL
+from app.config import DATA_DIR, LAYER_A_MODEL, LAYER_B_MODEL
 from app.db.database import get_db
 from app.models.schemas import AdminContextUpdateRequest, AdminWriteRuleRequest
 from app.services.claude_service import get_claude_service
@@ -124,26 +124,20 @@ def admin_write_rule(
         )
         db.commit()
 
-    db.execute(
-        text("""
-            INSERT INTO correction_changelog
-                (timestamp, company_id, company_name, field_name, statement_type,
-                 layer_a_instruction, layer_b_action, layer_b_detail, source)
-            VALUES
-                (:ts, :cid, :cn, :fn, :st, :la_instr, :lb_action, :lb_detail, 'admin_portal')
-        """),
-        {
-            "ts": timestamp,
-            "cid": company_id,
-            "cn": company_name,
-            "fn": request.field_name,
-            "st": request.statement_type,
-            "la_instr": instruction,
-            "lb_action": action,
-            "lb_detail": detail,
-        },
-    )
-    db.commit()
+    changelog_entry = {
+        "timestamp": timestamp,
+        "company_id": company_id,
+        "company_name": company_name,
+        "source": "admin_portal",
+        "field_name": request.field_name,
+        "statement_type": request.statement_type,
+        "layer_a_instruction": instruction,
+        "layer_b_action": action,
+        "layer_b_detail": detail,
+    }
+    changelog_path = DATA_DIR / "company_context_changelog.jsonl"
+    with changelog_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(changelog_entry) + "\n")
 
     return {
         "success": True,

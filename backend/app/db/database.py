@@ -105,39 +105,6 @@ CREATE TABLE IF NOT EXISTS layer1_templates (
 );
 """
 
-_SQLITE_CREATE_CORRECTION_CHANGELOG = """
-CREATE TABLE IF NOT EXISTS correction_changelog (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT NOT NULL,
-    company_id INTEGER,
-    company_name TEXT,
-    correction_id INTEGER,
-    field_name TEXT,
-    statement_type TEXT,
-    layer_a_instruction TEXT,
-    layer_a_referenced_fields TEXT,
-    layer_b_action TEXT,
-    layer_b_detail TEXT,
-    markdown_section_affected TEXT,
-    source TEXT DEFAULT 'pipeline',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-"""
-
-_SQLITE_CREATE_CONTEXT_ALERTS = """
-CREATE TABLE IF NOT EXISTS context_alerts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT NOT NULL,
-    type TEXT NOT NULL,
-    company_id INTEGER,
-    company_name TEXT,
-    word_count INTEGER,
-    message TEXT,
-    status TEXT DEFAULT 'open',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-"""
-
 
 # ── PostgreSQL CREATE TABLE statements ────────────────────────────────────────
 
@@ -198,39 +165,6 @@ CREATE TABLE IF NOT EXISTS layer1_templates (
 );
 """
 
-_PG_CREATE_CORRECTION_CHANGELOG = """
-CREATE TABLE IF NOT EXISTS correction_changelog (
-    id SERIAL PRIMARY KEY,
-    timestamp TEXT NOT NULL,
-    company_id INTEGER,
-    company_name TEXT,
-    correction_id INTEGER,
-    field_name TEXT,
-    statement_type TEXT,
-    layer_a_instruction TEXT,
-    layer_a_referenced_fields TEXT,
-    layer_b_action TEXT,
-    layer_b_detail TEXT,
-    markdown_section_affected TEXT,
-    source TEXT DEFAULT 'pipeline',
-    created_at TIMESTAMP DEFAULT NOW()
-);
-"""
-
-_PG_CREATE_CONTEXT_ALERTS = """
-CREATE TABLE IF NOT EXISTS context_alerts (
-    id SERIAL PRIMARY KEY,
-    timestamp TEXT NOT NULL,
-    type TEXT NOT NULL,
-    company_id INTEGER,
-    company_name TEXT,
-    word_count INTEGER,
-    message TEXT,
-    status TEXT DEFAULT 'open',
-    created_at TIMESTAMP DEFAULT NOW()
-);
-"""
-
 # ── Idempotent migrations for pre-existing databases ─────────────────────────
 
 _MIGRATIONS = [
@@ -266,8 +200,6 @@ def init_db() -> None:
             _SQLITE_CREATE_COMPANIES,
             _SQLITE_CREATE_CORRECTIONS,
             _SQLITE_CREATE_LAYER1_TEMPLATES,
-            _SQLITE_CREATE_CORRECTION_CHANGELOG,
-            _SQLITE_CREATE_CONTEXT_ALERTS,
         ]
     else:
         ddl_statements = [
@@ -275,8 +207,6 @@ def init_db() -> None:
             _PG_CREATE_COMPANIES,
             _PG_CREATE_CORRECTIONS,
             _PG_CREATE_LAYER1_TEMPLATES,
-            _PG_CREATE_CORRECTION_CHANGELOG,
-            _PG_CREATE_CONTEXT_ALERTS,
         ]
 
     # Each CREATE TABLE runs in its own transaction so a failed migration
@@ -290,94 +220,6 @@ def init_db() -> None:
             _exec_safe(migration)
         except Exception:
             pass  # Column already exists — safe to ignore
-
-    # One-time migration: import existing JSONL audit data into DB tables.
-    _migrate_jsonl_to_db()
-
-
-def _migrate_jsonl_to_db() -> None:
-    """
-    Import existing JSONL audit files into the new DB tables on first startup.
-    No-op if the tables already contain rows (migration already ran) or if the
-    JSONL files don't exist (fresh deployment).
-    """
-    import json
-    from app.config import DATA_DIR
-
-    changelog_path = DATA_DIR / "company_context_changelog.jsonl"
-    alerts_path = DATA_DIR / "alerts.jsonl"
-
-    with engine.connect() as conn:
-        # Changelog migration
-        if changelog_path.exists():
-            count = conn.execute(text("SELECT COUNT(*) FROM correction_changelog")).scalar()
-            if count == 0:
-                try:
-                    lines = [l.strip() for l in changelog_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-                    for line in lines:
-                        try:
-                            e = json.loads(line)
-                            conn.execute(text("""
-                                INSERT INTO correction_changelog
-                                    (timestamp, company_id, company_name, correction_id,
-                                     field_name, statement_type, layer_a_instruction,
-                                     layer_a_referenced_fields, layer_b_action, layer_b_detail,
-                                     markdown_section_affected, source)
-                                VALUES
-                                    (:ts, :cid, :cn, :corr_id, :fn, :st, :la_instr,
-                                     :la_refs, :lb_action, :lb_detail, :section, :source)
-                            """), {
-                                "ts": e.get("timestamp", ""),
-                                "cid": e.get("company_id"),
-                                "cn": e.get("company_name"),
-                                "corr_id": e.get("correction_id"),
-                                "fn": e.get("field_name"),
-                                "st": e.get("statement_type"),
-                                "la_instr": e.get("layer_a_instruction"),
-                                "la_refs": json.dumps(e.get("layer_a_referenced_fields") or []),
-                                "lb_action": e.get("layer_b_action"),
-                                "lb_detail": e.get("layer_b_detail"),
-                                "section": e.get("markdown_section_affected"),
-                                "source": e.get("source", "pipeline"),
-                            })
-                        except Exception:
-                            continue
-                    conn.commit()
-                except Exception:
-                    conn.rollback()
-
-        # Alerts migration
-        if alerts_path.exists():
-            count = conn.execute(text("SELECT COUNT(*) FROM context_alerts")).scalar()
-            if count == 0:
-                try:
-                    lines = [l.strip() for l in alerts_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-                    for line in lines:
-                        try:
-                            e = json.loads(line)
-                            status = e.get("status", "open")
-                            if "resolved" in e and "status" not in e:
-                                status = "resolved" if e["resolved"] else "open"
-                            conn.execute(text("""
-                                INSERT INTO context_alerts
-                                    (timestamp, type, company_id, company_name,
-                                     word_count, message, status)
-                                VALUES
-                                    (:ts, :type, :cid, :cn, :wc, :msg, :status)
-                            """), {
-                                "ts": e.get("timestamp", ""),
-                                "type": e.get("type", "unknown"),
-                                "cid": e.get("company_id"),
-                                "cn": e.get("company_name"),
-                                "wc": e.get("word_count"),
-                                "msg": e.get("message"),
-                                "status": status,
-                            })
-                        except Exception:
-                            continue
-                    conn.commit()
-                except Exception:
-                    conn.rollback()
 
 
 def get_db():
