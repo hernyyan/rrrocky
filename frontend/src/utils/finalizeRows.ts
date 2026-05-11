@@ -2,16 +2,18 @@
  * finalizeRows — pure functions for building the Step 3 finalization table.
  *
  * Exported:
+ *   getFailingFieldNames(layer2) → Set<string>
+ *       Returns field names that participate in at least one FAIL validation
+ *       check. Shared by Step2 (per-field check) and Step3 (pre-built set).
+ *
  *   buildFinalizeRows(params) → FinalizeRow[]
  *       Produces the flat row list rendered by the Step 3 data table.
  *       Pure — all inputs passed explicitly, no component state captured.
  */
 import { formatFieldValue } from './formatters'
-import { BOLD_FIELDS, ITALIC_FIELDS, isIndented, getFailingFieldNames } from './templateStyling'
+import { BOLD_FIELDS, ITALIC_FIELDS, isIndented } from './templateStyling'
 import type { Layer2Result, TemplateSection } from '../types'
 import { STATEMENT_LABELS } from './statementMeta'
-
-export { getFailingFieldNames } from './templateStyling'
 
 export interface FinalizeRow {
   label: string
@@ -27,6 +29,30 @@ export interface FinalizeRow {
   isBold?: boolean
   isIndented?: boolean
   isItalic?: boolean
+}
+
+// ── Shared validation helper ───────────────────────────────────────────────
+
+/**
+ * Return the set of field names that are involved in at least one failing
+ * validation check for the given Layer 2 result.
+ *
+ * Algorithm: iterate failing check names, look up which fields reference
+ * each check in fieldValidations, collect those fields.
+ */
+export function getFailingFieldNames(layer2: Layer2Result | undefined): Set<string> {
+  if (!layer2) return new Set()
+  const failing = new Set<string>()
+  for (const [checkName, check] of Object.entries(layer2.validation ?? {})) {
+    if (check.status === 'FAIL') {
+      for (const [field, checks] of Object.entries(layer2.fieldValidations ?? {})) {
+        if ((checks as string[]).includes(checkName)) {
+          failing.add(field)
+        }
+      }
+    }
+  }
+  return failing
 }
 
 // ── Inner row builder (one statement) ─────────────────────────────────────
