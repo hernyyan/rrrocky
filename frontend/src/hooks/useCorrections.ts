@@ -35,30 +35,10 @@ export function useCorrections({
 
   async function save(correctionData: Omit<Correction, 'timestamp'>) {
     const correction: Correction = { ...correctionData, timestamp: new Date().toISOString() }
+    addCorrection(correction)
     setPendingValues(null)
 
     const stmtType = selectedCellType ?? 'income_statement'
-
-    // 1. Persist to backend first — do not update UI state until confirmed.
-    try {
-      await saveCorrectionApi({
-        sessionId,
-        fieldName: correctionData.fieldName,
-        statementType: stmtType,
-        originalValue: correctionData.originalValue,
-        correctedValue: correctionData.correctedValue,
-        reasoning: correctionData.reasoning,
-        tag: correctionData.tag,
-      })
-    } catch {
-      onStatus?.({ type: 'error', message: `Failed to save correction for "${correctionData.fieldName}". Please try again.` })
-      return
-    }
-
-    // 2. Save confirmed — update UI state.
-    addCorrection(correction)
-
-    // 3. Recalculate display values. Non-fatal: correction is already persisted.
     const currentL2 = layer2Results[stmtType]
     if (currentL2) {
       const baseValues: Record<string, number | null> = { ...currentL2.values }
@@ -82,12 +62,24 @@ export function useCorrections({
           [stmtType]: { ...currentL2, values: result.values },
         })
       } catch {
-        // Non-fatal: display values unchanged, but correction is saved.
+        // Non-fatal
       }
     }
 
-    // 4. Background AI processing for company_specific / general_fix corrections.
-    //    Fire-and-forget but surface failure so the analyst knows to reprocess manually.
+    try {
+      await saveCorrectionApi({
+        sessionId,
+        fieldName: correctionData.fieldName,
+        statementType: selectedCellType ?? 'income_statement',
+        originalValue: correctionData.originalValue,
+        correctedValue: correctionData.correctedValue,
+        reasoning: correctionData.reasoning,
+        tag: correctionData.tag,
+      })
+    } catch {
+      // Non-fatal
+    }
+
     if (correctionData.tag === 'company_specific' || correctionData.tag === 'general_fix') {
       const layer2 = layer2Results[stmtType]
       const valKeys = layer2?.fieldValidations[correctionData.fieldName] ?? []
@@ -114,8 +106,8 @@ export function useCorrections({
           analyst_reasoning: correctionData.reasoning,
           tag: correctionData.tag,
         }],
-      }).catch(() => {
-        onStatus?.({ type: 'error', message: `Correction saved, but background processing failed for "${correctionData.fieldName}".` })
+      }).catch((err) => {
+        console.error(`Correction processing failed for "${correctionData.fieldName}":`, err)
       })
     }
 
