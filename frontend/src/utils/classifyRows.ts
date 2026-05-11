@@ -12,8 +12,7 @@
  *       pendingValues: non-null means live-edit mode — overrides correction display.
  */
 import { formatFieldValue } from './formatters'
-import { BOLD_FIELDS, ITALIC_FIELDS, isIndented } from './templateStyling'
-import { getFailingFieldNames } from './finalizeRows'
+import { BOLD_FIELDS, ITALIC_FIELDS, isIndented, getFailingFieldNames } from './templateStyling'
 import type { Correction, Layer2Result, TemplateSection } from '../types'
 import type { DataTableRow } from '../components/shared/DataTable'
 
