@@ -1,7 +1,7 @@
+import { useState, useEffect } from 'react'
 import type { CalculationMeta, Correction } from '../../types'
 import { CALCULATED_FIELDS, READONLY_FIELDS } from '../../utils/templateStyling'
-import { AlertTriangle, CheckCircle2, RotateCcw } from 'lucide-react'
-import CalculationOverrideForm from './CalculationOverrideForm'
+import { AlertTriangle, CheckCircle2, RotateCcw, Save, Trash2 } from 'lucide-react'
 
 function fmt(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—'
@@ -29,6 +29,21 @@ export default function CalculatedFieldPanel({
   onClearOverride,
   onLiveEdit,
 }: CalculatedFieldPanelProps) {
+  const [overrideValue, setOverrideValue] = useState('')
+  const [overrideReasoning, setOverrideReasoning] = useState('')
+  const [reasoningError, setReasoningError] = useState(false)
+
+  useEffect(() => {
+    if (fieldName && existingCorrection && CALCULATED_FIELDS.has(fieldName)) {
+      setOverrideValue(String(existingCorrection.correctedValue))
+      setOverrideReasoning(existingCorrection.reasoning ?? '')
+    } else {
+      setOverrideValue('')
+      setOverrideReasoning('')
+    }
+    setReasoningError(false)
+  }, [fieldName, existingCorrection])
+
   const pythonResult = meta?.python_result
   const aiVal = meta?.ai_matched_value
   const matchStatus = meta?.match_status
@@ -36,6 +51,17 @@ export default function CalculatedFieldPanel({
     meta?.type === 'overridden' ||
     (existingCorrection != null && fieldName != null && CALCULATED_FIELDS.has(fieldName))
   const mathOk = meta?.math_ok ?? true
+
+  function handleSave() {
+    const parsed = parseFloat(overrideValue)
+    if (isNaN(parsed)) return
+    if (!overrideReasoning.trim()) {
+      setReasoningError(true)
+      return
+    }
+    setReasoningError(false)
+    onSaveOverride(parsed, overrideReasoning)
+  }
 
   // Source-matched fallback (e.g. Adjusted EBITDA - Standard when EBITDA Adjustments null)
   if (meta?.type === 'source_matched_fallback') {
@@ -208,13 +234,67 @@ export default function CalculatedFieldPanel({
 
       {/* Override input — not shown for readonly fields */}
       {!isReadonly && (
-        <CalculationOverrideForm
-          fieldName={fieldName}
-          existingCorrection={existingCorrection}
-          onSave={onSaveOverride}
-          onClearOverride={onClearOverride}
-          onLiveEdit={onLiveEdit}
-        />
+        <div className="space-y-3 pt-1 border-t border-border">
+          <h4 className="text-[12px]" style={{ fontWeight: 500 }}>
+            Override Value <span className="text-muted-foreground font-normal">(optional)</span>
+          </h4>
+
+          <div>
+            <label className="text-[11px] text-muted-foreground block mb-1">Override Value</label>
+            <input
+              type="number"
+              step="any"
+              value={overrideValue}
+              onChange={(e) => {
+                setOverrideValue(e.target.value)
+                const parsed = parseFloat(e.target.value)
+                onLiveEdit?.(isNaN(parsed) ? null : parsed)
+              }}
+              className="w-full bg-white border border-border rounded-lg px-3 py-2 text-[13px] font-mono focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="Enter override value"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] text-muted-foreground block mb-1">
+              Reasoning <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={overrideReasoning}
+              onChange={(e) => {
+                setOverrideReasoning(e.target.value)
+                if (e.target.value.trim()) setReasoningError(false)
+              }}
+              rows={3}
+              className={`w-full bg-white border rounded-lg px-3 py-2 text-[12px] resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                reasoningError ? 'border-red-400' : 'border-border'
+              }`}
+              placeholder="Why are you overriding this calculated value?"
+            />
+            {reasoningError && (
+              <p className="text-[10px] text-red-500 mt-1">Reasoning is required.</p>
+            )}
+          </div>
+
+          <button
+            onClick={handleSave}
+            className="w-full bg-primary text-white py-2 rounded-lg text-[13px] hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+            style={{ fontWeight: 500 }}
+          >
+            <Save className="w-3.5 h-3.5" />
+            Save Override
+          </button>
+
+          {existingCorrection != null && fieldName != null && CALCULATED_FIELDS.has(fieldName) && (
+            <button
+              onClick={onClearOverride}
+              className="w-full text-red-600 hover:text-red-700 py-1.5 text-[12px] flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <Trash2 className="w-3 h-3" />
+              Remove Override
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
