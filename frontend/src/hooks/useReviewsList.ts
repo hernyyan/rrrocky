@@ -12,7 +12,7 @@
  * Returns everything ReviewsList needs to render the toolbar and table.
  */
 import { useEffect, useState } from 'react'
-import { adminGetReviews, adminDeleteReview, AdminReview } from '../api/client'
+import { adminGetReviews, adminDeleteReview, AdminReview } from '../components/admin/AdminApiClient'
 import { useTableSort } from './useTableSort'
 import { periodToSortKey } from '../utils/periodUtils'
 

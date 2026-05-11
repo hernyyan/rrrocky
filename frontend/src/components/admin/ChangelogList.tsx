@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Loader2, X, Download } from 'lucide-react'
-import { adminGetChangelog } from '../../api/client'
+import { adminGetChangelog } from './AdminApiClient'
 import { exportToCsv } from '../../utils/csvExport'
 
 export default function ChangelogList() {

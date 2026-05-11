@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Save, Loader2 } from 'lucide-react'
-import { adminUpdateCompanyContext } from '../../api/client'
+import { adminUpdateCompanyContext } from './AdminApiClient'
 
 interface Props {
   companyId: number

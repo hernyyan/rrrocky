@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import type { StatementType } from '../../types'
 import { STATEMENT_LABELS } from '../../utils/statementMeta'
-import { adminWriteRule, type WriteRuleResult } from '../../api/client'
+import { adminWriteRule, WriteRuleResult } from './AdminApiClient'
 
 interface Props {
   companyId: number

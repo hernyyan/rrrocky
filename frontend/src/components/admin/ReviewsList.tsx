@@ -1,5 +1,5 @@
 import { Loader2, Download, Trash2 } from 'lucide-react'
-import { adminExportReviewUrl } from '../../api/client'
+import { adminExportReviewUrl } from './AdminApiClient'
 import { useReviewsList, SortField, CorrectionsFilter } from '../../hooks/useReviewsList'
 import ReviewStatusBadge from '../shared/ReviewStatusBadge'
 

@@ -13,7 +13,7 @@
  * sort controls, add-company form, and company rows.
  */
 import { useEffect, useRef, useState } from 'react'
-import { adminGetCompanies, adminCreateCompany, adminDeleteCompany, AdminCompany } from '../api/client'
+import { adminGetCompanies, adminCreateCompany, adminDeleteCompany, AdminCompany } from '../components/admin/AdminApiClient'
 import { useTableSort } from './useTableSort'
 
 export type CompanySortField = 'name' | 'context_word_count' | 'total_corrections'
