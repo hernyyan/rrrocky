@@ -1,11 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Layer2Result, Correction, ValidationCheck, CalculationMeta } from '../../types'
 import { formatFieldValue } from '../../utils/formatters'
 import { CALCULATED_FIELDS, READONLY_FIELDS } from '../../utils/templateStyling'
 import CalculatedFieldPanel from './CalculatedFieldPanel'
 import CorrectionForm from './CorrectionForm'
-import ValidationChecksPanel from './ValidationChecksPanel'
-import { X, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  X,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react'
 
 interface SidePanelProps {
   isOpen: boolean
@@ -20,6 +25,13 @@ interface SidePanelProps {
   sourceSheet?: string | null
 }
 
+
+function fmt(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—'
+  const abs = Math.abs(value)
+  const s = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return value < 0 ? `(${s})` : s
+}
 
 function highlightDollarAmounts(text: string): React.ReactNode {
   const parts = text.split(/(\(\$[\d,]+(?:\.\d{1,2})?\)|\$[\d,]+(?:\.\d{1,2})?)/g)
@@ -83,6 +95,13 @@ export default function SidePanel({
   const passCount = relevantChecks.filter(([, c]) => c.status === 'PASS').length
 
   const [reasoningOpen, setReasoningOpen] = useState(true)
+  const [validationOpen, setValidationOpen] = useState(false)
+
+  useEffect(() => {
+    setReasoningOpen(true)
+    setValidationOpen(hasFailure)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fieldName, hasFailure])
 
   function handleSaveOverride(value: number, reasoning: string) {
     if (!fieldName) return
@@ -197,7 +216,50 @@ export default function SidePanel({
             </div>
 
             {/* Validation Checks — collapsible */}
-            <ValidationChecksPanel checks={relevantChecks} passCount={passCount} />
+            {relevantChecks.length > 0 && (
+              <div className="border-b border-border">
+                <button
+                  onClick={() => setValidationOpen((o) => !o)}
+                  className="flex items-center justify-between w-full px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                >
+                  <span className="text-[12px]" style={{ fontWeight: 500 }}>
+                    Validation Checks ({passCount}/{relevantChecks.length} passed)
+                  </span>
+                  {validationOpen ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                  )}
+                </button>
+                {validationOpen && (
+                  <div className="px-4 pb-3 space-y-2">
+                    {relevantChecks.map(([checkName, check]) => (
+                      <div
+                        key={checkName}
+                        className={`rounded-lg px-3 py-2 text-[11px] ${check.status === 'PASS' ? 'bg-emerald-50' : 'bg-red-50'}`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          {check.status === 'PASS' ? (
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                          ) : (
+                            <XCircle className="w-3 h-3 text-red-500 shrink-0" />
+                          )}
+                          <span
+                            style={{ fontWeight: 500 }}
+                            className={check.status === 'PASS' ? 'text-emerald-700' : 'text-red-700'}
+                          >
+                            {check.checkName}
+                          </span>
+                        </div>
+                        <p className={`ml-[18px] ${check.status === 'PASS' ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {check.details}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Correction form */}
             <CorrectionForm
