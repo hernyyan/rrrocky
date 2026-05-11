@@ -54,5 +54,11 @@ def upsert_layer1_template(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    get_layer1_service().save_template(company_id, statement_type, payload, db)
+    try:
+        get_layer1_service().save_template(company_id, statement_type, payload, db)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.warning("Failed to save layer1 template for company %s: %s", company_id, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to save template: {exc}")
     return {"success": True}

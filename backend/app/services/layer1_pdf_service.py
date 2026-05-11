@@ -160,26 +160,17 @@ class Layer1PdfService:
         statement_type: str,
         result: Dict[str, Any],
     ) -> None:
-        """Merge this result into reviews.layer1_data — non-fatal on failure."""
-        try:
-            merge_layer1_data(
-                db,
-                session_id,
-                statement_type,
-                {
-                    "lineItems": result["lineItems"],
-                    "sourceScaling": result["sourceScaling"],
-                    "columnIdentified": result["columnIdentified"],
-                },
-            )
-            db.commit()
-        except Exception as exc:
-            db.rollback()
-            logger.warning(
-                "Layer 1 PDF DB persistence failed for session %s: %s",
-                session_id,
-                exc,
-            )
+        """Merge this result into reviews.layer1_data. Does NOT commit — caller owns the transaction."""
+        merge_layer1_data(
+            db,
+            session_id,
+            statement_type,
+            {
+                "lineItems": result["lineItems"],
+                "sourceScaling": result["sourceScaling"],
+                "columnIdentified": result["columnIdentified"],
+            },
+        )
 
 
 # Singleton factory — mirrors get_layer1_service()

@@ -201,7 +201,7 @@ class Layer1Service:
         template_json: Dict,
         db: Session,
     ) -> None:
-        """Upsert a template into layer1_templates."""
+        """Upsert a template into layer1_templates. Does NOT commit — caller owns the transaction."""
         tmpl = json.dumps(template_json)
         result = db.execute(
             sa_text(
@@ -218,7 +218,6 @@ class Layer1Service:
                 ),
                 {"cid": company_id, "st": statement_type, "tmpl": tmpl},
             )
-        db.commit()
 
     # ── Named pipeline steps ─────────────────────────────────────────────────
 

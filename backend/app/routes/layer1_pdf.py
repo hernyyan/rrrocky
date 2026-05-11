@@ -2,6 +2,8 @@
 POST /layer1/run-pdf — Run Layer 1 AI extraction on selected PDF pages.
 Uses the Claude API's native PDF document input.
 """
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -10,6 +12,8 @@ from app.db.database import get_db
 from app.models.schemas import Layer1PdfRequest, Layer1Response
 from app.services.layer1_pdf_service import get_layer1_pdf_service
 from app.utils.claude_errors import claude_api_errors
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -34,6 +38,13 @@ def run_layer1_pdf(request: Layer1PdfRequest, db: Session = Depends(get_db)):
             session_id=request.sessionId,
             db=db,
         )
+
+    # Persist to DB — non-fatal (extraction result is returned regardless)
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.warning("Layer 1 PDF DB persistence failed for session %s: %s", request.sessionId, exc)
 
     return Layer1Response(
         sheetName=result["sheetName"],

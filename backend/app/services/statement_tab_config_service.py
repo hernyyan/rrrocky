@@ -22,7 +22,7 @@ def get_tab_configs(company_id: int, db: Session) -> dict[str, str]:
 
 
 def save_tab_config(company_id: int, statement_type: str, tab: str, db: Session) -> None:
-    """Upsert the tab assignment for a single statement type. Commits."""
+    """Upsert the tab assignment for a single statement type. Does NOT commit — caller owns the transaction."""
     updated = db.execute(
         text("""
             UPDATE statement_tab_configs
@@ -41,4 +41,4 @@ def save_tab_config(company_id: int, statement_type: str, tab: str, db: Session)
             {"cid": company_id, "stmt": statement_type, "tab": tab},
         )
 
-    db.commit()
+
