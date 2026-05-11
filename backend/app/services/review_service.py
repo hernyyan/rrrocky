@@ -223,3 +223,46 @@ def delete_review(session_id: str, db: Session) -> None:
         {"sid": session_id},
     )
     db.commit()
+
+
+def get_export_data(session_id: str, db: Session) -> dict[str, Any]:
+    """
+    Load a finalized review and return all data needed to build an export response:
+      csv_content      — CSV string from template_service
+      final_values     — flat dict of all field → value across all statements
+      corrected_fields — set of field names that have analyst corrections
+
+    Raises HTTPException 404 if not found.
+    """
+    row = db.execute(
+        text(
+            "SELECT company_name, reporting_period, final_output, corrections "
+            "FROM reviews WHERE session_id = :sid"
+        ),
+        {"sid": session_id},
+    ).fetchone()
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session '{session_id}' not found or not yet finalized.",
+        )
+
+    final_output: dict = deserialize_dict(row[2])
+    corrections: list = deserialize_list(row[3])
+
+    csv_content = get_template_service().build_export_csv(final_output)
+
+    flat_values: dict = {}
+    for stmt_values in final_output.values():
+        if isinstance(stmt_values, dict):
+            flat_values.update(stmt_values)
+
+    corrected_fields = {c.get("fieldName", "") for c in corrections}
+
+    return {
+        "session_id": session_id,
+        "csv_content": csv_content,
+        "final_values": flat_values,
+        "corrected_fields": corrected_fields,
+    }

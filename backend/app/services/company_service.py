@@ -247,6 +247,19 @@ def get_company_finalized_data(
     return {"company_id": company_id, "company_name": company_name, "periods": periods}
 
 
+def update_company_context(company_id: int, content: str, db: Session) -> int:
+    """
+    Overwrite the context field for a company. Commits immediately.
+    Returns the new word count.
+    """
+    db.execute(
+        text("UPDATE companies SET context = :ctx WHERE id = :id"),
+        {"ctx": content, "id": company_id},
+    )
+    db.commit()
+    return markdown_body_word_count(content)
+
+
 def get_company_corrections(company_id: int, db: Session) -> dict[str, Any]:
     """Return all company_specific_corrections for a company, newest first."""
     rows = db.execute(

@@ -3,16 +3,13 @@ GET  /companies/{company_id}/layer1-templates/{statement_type}  — fetch stored
 POST /companies/{company_id}/layer1-templates/{statement_type}  — upsert template
 """
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 
 from app.db.database import get_db
 from app.models.schemas import Layer1TemplateResponse
 from app.services.layer1_service import get_layer1_service
-from app.utils.json_utils import deserialize_dict
 from app.utils.statement_meta import STATEMENT_KEYS_SET
 
 logger = logging.getLogger(__name__)
@@ -31,26 +28,17 @@ def get_layer1_template(
     if statement_type not in _VALID_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid statement_type: {statement_type}")
 
-    row = db.execute(
-        text(
-            "SELECT id, company_id, statement_type, template, created_at, updated_at "
-            "FROM layer1_templates WHERE company_id = :cid AND statement_type = :st"
-        ),
-        {"cid": company_id, "st": statement_type},
-    ).fetchone()
-
+    row = get_layer1_service().get_template(company_id, statement_type, db)
     if not row:
         raise HTTPException(status_code=404, detail="No template found for this company and statement type.")
 
-    template = deserialize_dict(row[3])
-
     return Layer1TemplateResponse(
-        id=row[0],
-        company_id=row[1],
-        statement_type=row[2],
-        template=template,
-        created_at=str(row[4]) if row[4] else None,
-        updated_at=str(row[5]) if row[5] else None,
+        id=row["id"],
+        company_id=row["company_id"],
+        statement_type=row["statement_type"],
+        template=row["template"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
     )
 
 
