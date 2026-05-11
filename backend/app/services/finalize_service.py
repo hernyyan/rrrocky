@@ -25,9 +25,7 @@ class FinalizeService:
         db: Session,
     ) -> str:
         """
-        Upsert a finalized review row. Returns the ISO finalized_at timestamp.
-
-        Does NOT commit — caller owns the transaction boundary.
+        Upsert a finalized review row and commit. Returns the ISO finalized_at timestamp.
 
         If session_id is provided: UPDATE existing row; if no row exists, INSERT.
         If session_id is None: INSERT a new row without a session_id.
@@ -94,6 +92,7 @@ class FinalizeService:
                     "corrections": corrections_json,
                 },
             )
+        db.commit()
         return now
 
 

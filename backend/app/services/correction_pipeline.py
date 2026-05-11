@@ -305,10 +305,8 @@ class CorrectionPipeline:
     def _mark_processed(self, correction_id: int, db: Session) -> None:
         """Step 9: Mark the correction as processed and commit the transaction.
 
-        Intentional exception to the "routes own commits" convention:
-        this method commits atomically with _write_context() (step 6), which
-        explicitly does NOT commit so that both writes land together or not at all.
-        Splitting the commit to the route caller would break that atomicity guarantee.
+        Commits atomically with any preceding db.execute() calls in this session
+        (e.g. the context write from step 6).
         """
         db.execute(
             text("UPDATE company_specific_corrections SET processed = TRUE WHERE id = :id"),
