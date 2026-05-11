@@ -3,7 +3,6 @@ import { useWizardState } from '../../hooks/useWizardState'
 import { useExcelExtraction } from '../../hooks/useExcelExtraction'
 import { usePdfExtraction } from '../../hooks/usePdfExtraction'
 import { useCompanySelector } from '../../hooks/useCompanySelector'
-import { useContextStatus } from '../../hooks/useContextStatus'
 import { useSplitPane } from '../../hooks/useSplitPane'
 import { useDuplicateResolution } from '../../hooks/useDuplicateResolution'
 import TabSelector from '../shared/TabSelector'
@@ -18,10 +17,11 @@ import UploadToolbar from './UploadToolbar'
 import TemplateReview from './TemplateReview'
 import TemplateDeltaReview from './TemplateDeltaReview'
 import {
+  getCompanyContextStatus,
   appendToCompanyDataset,
 } from '../../api/client'
 import { API_BASE } from '../../api/client'
-import type { Company, StatusMessage, StatementType } from '../../types'
+import type { Company, CompanyContextStatus, StatusMessage, StatementType } from '../../types'
 import { ALL_STATEMENT_TYPES, STATEMENT_LABELS } from '../../utils/statementMeta'
 
 import { useFileUpload } from '../../hooks/useFileUpload'
@@ -78,7 +78,8 @@ export default function Step1Upload() {
   const { leftPct, containerRef: splitContainerRef, handleDividerMouseDown } = useSplitPane()
 
   const [status, setStatus] = useState<StatusMessage>(null)
-  const { contextStatus, contextLoading, fetchContext, clearContext } = useContextStatus()
+  const [contextStatus, setContextStatus] = useState<CompanyContextStatus | null>(null)
+  const [contextLoading, setContextLoading] = useState(false)
 
   // Duplicate-check modal — owns state + pre-run check + handleContinuePrevious
   const {
@@ -168,8 +169,8 @@ export default function Step1Upload() {
     resetExcelExtraction,
     resetPdfExtraction,
     setStatus,
-    onContextFetch: fetchContext,
-    onClearContext: clearContext,
+    setContextStatus,
+    setContextLoading,
   })
 
   const hasUpload = uploadFileType === 'excel'
@@ -199,7 +200,11 @@ export default function Step1Upload() {
       setCompanyName(company.name)
       setCompanyId(company.id)
       if (hasUpload) {
-        fetchContext(company.id)
+        setContextLoading(true)
+        getCompanyContextStatus(company.id)
+          .then(setContextStatus)
+          .catch(() => setContextStatus(null))
+          .finally(() => setContextLoading(false))
       }
     },
     onClear: () => {
