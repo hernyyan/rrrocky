@@ -49,6 +49,12 @@ export async function deleteJson<T>(url: string): Promise<T> {
   return handleResponse<T>(res)
 }
 
+export async function fetchArrayBuffer(url: string): Promise<ArrayBuffer> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.arrayBuffer()
+}
+
 export async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = `API error ${res.status}`

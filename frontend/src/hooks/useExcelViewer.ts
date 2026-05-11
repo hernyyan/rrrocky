@@ -13,7 +13,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import ExcelJS from 'exceljs'
-import { API_BASE } from '../api/client'
+import { API_BASE, fetchArrayBuffer } from '../api/client'
 
 const MAX_RENDER_ROWS = 300
 const MAX_RENDER_COLS = 40
@@ -50,11 +50,7 @@ export function useExcelViewer({ workbookUrl, activeSheet }: UseExcelViewerOptio
     setError(null)
     setWorkbook(null)
 
-    fetch(`${API_BASE}${workbookUrl}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.arrayBuffer()
-      })
+    fetchArrayBuffer(`${API_BASE}${workbookUrl}`)
       .then(async (buf) => {
         const wb = new ExcelJS.Workbook()
         await wb.xlsx.load(buf)
