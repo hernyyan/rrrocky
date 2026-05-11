@@ -1,6 +1,7 @@
 import { Loader2, X, Download } from 'lucide-react'
 import { useGeneralFixesList, type SortField } from '../../hooks/useGeneralFixesList'
 import { exportToCsv } from '../../utils/csvExport'
+import { ALL_STATEMENT_TYPES, STATEMENT_LABELS } from '../../utils/statementMeta'
 
 const SORTABLE: SortField[] = ['timestamp', 'company', 'period', 'statement_type', 'field_name']
 
@@ -59,8 +60,9 @@ export default function GeneralFixesList() {
           onChange={(e) => setStmtFilter(e.target.value)}
         >
           <option value="">All statement types</option>
-          <option value="income_statement">income_statement</option>
-          <option value="balance_sheet">balance_sheet</option>
+          {ALL_STATEMENT_TYPES.map((type) => (
+            <option key={type} value={type}>{STATEMENT_LABELS[type]}</option>
+          ))}
         </select>
         <input
           className="bg-white border border-border rounded-lg px-3 py-1.5 text-[13px] outline-none w-40"
