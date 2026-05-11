@@ -4,7 +4,6 @@ import { useExcelExtraction } from '../../hooks/useExcelExtraction'
 import { usePdfExtraction } from '../../hooks/usePdfExtraction'
 import { useCompanySelector } from '../../hooks/useCompanySelector'
 import { useSplitPane } from '../../hooks/useSplitPane'
-import { useDuplicateResolution } from '../../hooks/useDuplicateResolution'
 import TabSelector from '../shared/TabSelector'
 import ExcelViewer from '../shared/ExcelViewer'
 import PdfPageViewer from '../shared/PdfPageViewer'
@@ -18,6 +17,7 @@ import TemplateReview from './TemplateReview'
 import TemplateDeltaReview from './TemplateDeltaReview'
 import {
   getCompanyContextStatus,
+  continuePreviousReview,
   appendToCompanyDataset,
 } from '../../api/client'
 import { API_BASE } from '../../api/client'
@@ -81,23 +81,15 @@ export default function Step1Upload() {
   const [contextStatus, setContextStatus] = useState<CompanyContextStatus | null>(null)
   const [contextLoading, setContextLoading] = useState(false)
 
-  // Duplicate-check modal — owns state + handleContinuePrevious
-  const {
-    duplicateCheck,
-    setDuplicateCheck,
-    pendingExtraction,
-    setPendingExtraction,
-    handleContinuePrevious,
-  } = useDuplicateResolution({
-    companyId,
-    reportingPeriod,
-    setSessionId,
-    setLayer1Results,
-    setLayer2Results,
-    addCorrection,
-    approveStep1,
-    setStatus,
-  })
+  // Duplicate-check modal state (shared between Excel and PDF paths)
+  const [duplicateCheck, setDuplicateCheck] = useState<{
+    exists: boolean
+    sessionId: string
+    finalizedAt: string | null
+  } | null>(null)
+  const [pendingExtraction, setPendingExtraction] = useState<
+    { type: 'pdf' } | { type: 'global' } | null
+  >(null)
 
   // Excel extraction path
   const {
@@ -269,6 +261,45 @@ export default function Step1Upload() {
       newAssignments[pageNumber] = pdfActiveTab
     }
     setPdfPageAssignments(newAssignments)
+  }
+
+  async function handleContinuePrevious() {
+    if (!companyId) return
+    setDuplicateCheck(null)
+    try {
+      const data = await continuePreviousReview(companyId, reportingPeriod)
+
+      if (!data.layer1_data || typeof data.layer1_data !== 'object') {
+        console.warn('[handleContinuePrevious] layer1_data missing or malformed', data.layer1_data)
+      }
+      if (data.layer2_data && typeof data.layer2_data !== 'object') {
+        console.warn('[handleContinuePrevious] layer2_data malformed', data.layer2_data)
+      }
+
+      setSessionId(data.session_id)
+      setLayer1Results(data.layer1_data || {})
+      if (data.layer2_data) {
+        setLayer2Results(data.layer2_data)
+      }
+      if (data.corrections && Array.isArray(data.corrections)) {
+        for (const c of data.corrections) {
+          addCorrection({
+            fieldName: c.field_name,
+            originalValue: c.layer2_value ?? 0,
+            correctedValue: c.corrected_value,
+            reasoning: c.analyst_reasoning ?? undefined,
+            tag: c.tag,
+            timestamp: new Date().toISOString(),
+          })
+        }
+      }
+      approveStep1()
+    } catch (err) {
+      setStatus({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load previous review.',
+      })
+    }
   }
 
   function handleOverwrite() {
