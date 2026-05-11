@@ -21,6 +21,7 @@ from app.db.review_store import merge_layer1_data
 from app.models.schemas import Layer1Request, Layer1Response
 from app.services.layer1_service import get_layer1_service, find_excel_file
 from app.utils.claude_errors import claude_api_errors
+from app.utils.statement_meta import normalize_statement_type
 
 router = APIRouter()
 
@@ -72,7 +73,7 @@ def run_layer1(
             structured_rows = result.get("structured", {}).get("rows", [])
             template_check = service.check_template(
                 company_id=company_id,
-                statement_type=request.sheetType.lower().replace(" ", "_"),
+                statement_type=normalize_statement_type(request.sheetType),
                 structured_rows=structured_rows,
                 db=db,
             )

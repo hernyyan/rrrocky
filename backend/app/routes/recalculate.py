@@ -6,13 +6,14 @@ from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import RecalculateRequest
 from app.services.recalculate_service import RECALC_FN
+from app.utils.statement_meta import normalize_statement_type
 
 router = APIRouter()
 
 
 @router.post('/recalculate')
 def recalculate(request: RecalculateRequest):
-    normalized = request.statement_type.lower().replace(' ', '_')
+    normalized = normalize_statement_type(request.statement_type)
     fn = RECALC_FN.get(normalized)
     if fn is None:
         raise HTTPException(
