@@ -31,3 +31,13 @@ export function formatFieldValue(fieldName: string, value: number | null | undef
   if (value === null || value === undefined) return '—'
   return formatValue(fieldName, value)
 }
+
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}

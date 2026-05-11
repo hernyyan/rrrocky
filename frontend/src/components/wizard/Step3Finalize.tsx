@@ -2,6 +2,7 @@ import { useWizardState } from '../../hooks/useWizardState'
 import { useStep3Finalize } from '../../hooks/useStep3Finalize'
 import FinalizeTable from './FinalizeTable'
 import FinalizeActionBar from './FinalizeActionBar'
+import { formatDateTime } from '../../utils/formatters'
 import {
   CheckCircle2,
   Edit3,
@@ -9,16 +10,6 @@ import {
   Scale,
   XCircle,
 } from 'lucide-react'
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 export default function Step3Finalize() {
   const {
