@@ -43,9 +43,7 @@ def admin_alerts(
     db: Session = Depends(get_db),
 ):
     """Return all alerts. Runs duplicate company scan on each call to detect new duplicates."""
-    result = list_alerts(db, status=status_filter)
-    db.commit()  # commit any alert rows inserted by the duplicate scan
-    return result
+    return list_alerts(db, status=status_filter)
 
 
 @router.put("/alerts/update-status")
