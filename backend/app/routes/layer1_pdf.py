@@ -18,6 +18,7 @@ from app.models.schemas import Layer1PdfRequest, Layer1Response
 from app.services.claude_service import get_claude_service
 from app.utils.claude_errors import claude_api_errors
 from app.utils.json_utils import deserialize_dict
+from app.utils.statement_meta import STATEMENT_KEYS_SET
 
 router = APIRouter()
 
@@ -49,16 +50,11 @@ def run_layer1_pdf(request: Layer1PdfRequest, db: Session = Depends(get_db)):
     pdf_bytes = pdf_buffer.getvalue()
     pdf_base64 = base64.standard_b64encode(pdf_bytes).decode("utf-8")
 
-    # Load the appropriate Layer 1 prompt
-    prompt_map = {
-        "income_statement": "layer1_pdf_income_statement",
-        "balance_sheet": "layer1_pdf_balance_sheet",
-        "cash_flow_statement": "layer1_pdf_cash_flow_statement",
-    }
+    # Load the appropriate Layer 1 prompt — key follows "layer1_pdf_{stmt_key}" convention
     normalized = request.statementType.lower().replace(" ", "_")
-    prompt_key = prompt_map.get(normalized)
-    if not prompt_key:
+    if normalized not in STATEMENT_KEYS_SET:
         raise HTTPException(status_code=400, detail=f"Unknown statement type: {request.statementType}")
+    prompt_key = f"layer1_pdf_{normalized}"
 
     prompt_path = PROMPTS_DIR / f"{prompt_key}.md"
     if not prompt_path.exists():
