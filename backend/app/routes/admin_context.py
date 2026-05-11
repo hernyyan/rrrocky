@@ -7,11 +7,12 @@ POST /admin/write-rule                   — Submit a rule through Layer A → L
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.db.database import get_db
 from app.models.schemas import AdminContextUpdateRequest, AdminWriteRuleRequest
 from app.services.company_context_service import write_rule
-from app.services.company_service import get_company_or_404, update_company_context
+from app.services.company_service import get_company_or_404
 from app.utils.text_utils import markdown_body_word_count
 
 router = APIRouter(prefix="/admin")
@@ -22,7 +23,13 @@ def admin_company_context(company_id: int, db: Session = Depends(get_db)):
     """Return the full contents of a company's context from DB."""
     _, name, content = get_company_or_404(company_id, db)
     word_count = markdown_body_word_count(content) if content.strip() else 0
-    return {"id": company_id, "name": name, "word_count": word_count, "content": content}
+
+    return {
+        "id": company_id,
+        "name": name,
+        "word_count": word_count,
+        "content": content,
+    }
 
 
 @router.put("/company-context/{company_id}")
@@ -32,9 +39,15 @@ def admin_update_company_context(
     db: Session = Depends(get_db),
 ):
     """Directly overwrite the company's context in DB."""
-    get_company_or_404(company_id, db)
-    word_count = update_company_context(company_id, request.content, db)
-    return {"success": True, "word_count": word_count}
+    get_company_or_404(company_id, db)  # raises 404 if not found
+
+    db.execute(
+        text("UPDATE companies SET context = :ctx WHERE id = :id"),
+        {"ctx": request.content, "id": company_id},
+    )
+    db.commit()
+
+    return {"success": True, "word_count": markdown_body_word_count(request.content)}
 
 
 @router.post("/write-rule")
@@ -45,6 +58,7 @@ def admin_write_rule(
     """Submit a rule through Layer A → Layer B pipeline."""
     company_id, company_name, current_context = get_company_or_404(request.company_id, db)
     current_markdown = current_context or f"# {company_name} — Classification Context\n\n"
+
     return write_rule(
         company_id=company_id,
         company_name=company_name,

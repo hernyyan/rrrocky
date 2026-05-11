@@ -168,38 +168,6 @@ class Layer1Service:
             "unmatched": unmatched,
         }
 
-    def get_template(
-        self,
-        company_id: int,
-        statement_type: str,
-        db: Session,
-    ) -> Optional[Dict]:
-        """
-        Fetch the stored template for a company+statement_type.
-        Returns the full row as a dict, or None if no template exists.
-        """
-        from app.utils.json_utils import deserialize_dict
-
-        row = db.execute(
-            sa_text(
-                "SELECT id, company_id, statement_type, template, created_at, updated_at "
-                "FROM layer1_templates WHERE company_id = :cid AND statement_type = :st"
-            ),
-            {"cid": company_id, "st": statement_type},
-        ).fetchone()
-
-        if not row:
-            return None
-
-        return {
-            "id": row[0],
-            "company_id": row[1],
-            "statement_type": row[2],
-            "template": deserialize_dict(row[3]),
-            "created_at": str(row[4]) if row[4] else None,
-            "updated_at": str(row[5]) if row[5] else None,
-        }
-
     def save_template(
         self,
         company_id: int,
