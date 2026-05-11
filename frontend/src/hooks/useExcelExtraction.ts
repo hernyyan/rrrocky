@@ -6,7 +6,7 @@
  *   mergeLayer1Result, setStatus, setDuplicateCheck, setPendingExtraction
  */
 import { useState } from 'react'
-import { runLayer1, saveLayer1Template } from '../api/client'
+import { runLayer1, saveLayer1Template, saveStatementTabConfig } from '../api/client'
 import type { Layer1Result, Layer1Template, Layer1TemplateRow, TemplateCheckResult, StatusMessage, StatementType } from '../types'
 import { ALL_STATEMENT_TYPES, createStmtRecord } from '../utils/statementMeta'
 
@@ -101,6 +101,16 @@ export function useExcelExtraction({
         setStatus({ type: 'error', message: msg })
       }
       setExtractionStatus('done')
+
+      // Persist tab assignments so next upload can auto-restore them
+      if (companyId) {
+        for (const stmtType of stmtTypes) {
+          const tab = assignments[stmtType]
+          if (tab) {
+            saveStatementTabConfig(companyId, stmtType, { tab }).catch(() => {})
+          }
+        }
+      }
 
       // Template review for IS (only when companyId is known)
       if (companyId) {

@@ -19,10 +19,12 @@ import TemplateDeltaReview from './TemplateDeltaReview'
 import {
   getCompanyContextStatus,
   appendToCompanyDataset,
+  getStatementTabConfigs,
 } from '../../api/client'
 import { API_BASE } from '../../api/client'
 import type { Company, CompanyContextStatus, StatusMessage, StatementType } from '../../types'
 import { ALL_STATEMENT_TYPES, STATEMENT_LABELS } from '../../utils/statementMeta'
+import { fuzzyMatchTab } from '../../utils/fuzzyMatch'
 import { useFileUpload } from '../../hooks/useFileUpload'
 import {
   Upload,
@@ -213,6 +215,21 @@ export default function Step1Upload() {
   })
 
   const activeTab = activeSheetTab || sheetNames[0] || ''
+
+  // Auto-restore saved tab assignments when company + sheets are both known.
+  // Fires whenever companyId changes (company selected) or sheetNames change (file uploaded).
+  const sheetNamesKey = sheetNames.join(',')
+  useEffect(() => {
+    if (!companyId || sheetNames.length === 0) return
+    getStatementTabConfigs(companyId).then((configs) => {
+      for (const [stmtType, saved] of Object.entries(configs)) {
+        const matched = fuzzyMatchTab(saved.tab, sheetNames)
+        if (matched) {
+          setAssignments((prev) => ({ ...prev, [stmtType]: matched }))
+        }
+      }
+    }).catch(() => {})
+  }, [companyId, sheetNamesKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleTabChange(tab: string) {
     setActiveSheetTab(tab)

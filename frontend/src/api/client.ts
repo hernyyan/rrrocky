@@ -247,3 +247,23 @@ export async function saveLayer1Template(
   await postJson<{ success: boolean }>(`${API_BASE}/companies/${companyId}/layer1-templates/${statementType}`, template)
 }
 
+// GET /companies/{id}/statement-tab-configs
+export interface StatementTabConfig {
+  tab: string
+}
+
+export async function getStatementTabConfigs(companyId: number): Promise<Record<string, StatementTabConfig>> {
+  return getJson<Record<string, StatementTabConfig>>(`${API_BASE}/companies/${companyId}/statement-tab-configs`)
+}
+
+// POST /companies/{id}/statement-tab-configs/{statement_type}
+export async function saveStatementTabConfig(
+  companyId: number,
+  statementType: string,
+  config: StatementTabConfig,
+): Promise<void> {
+  await postJson<{ success: boolean }>(
+    `${API_BASE}/companies/${companyId}/statement-tab-configs/${statementType}`,
+    config,
+  )
+}
