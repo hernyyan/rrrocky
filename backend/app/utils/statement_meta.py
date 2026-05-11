@@ -22,18 +22,3 @@ STATEMENT_LABEL_TO_KEY: dict[str, str] = {label: k for k, label in STATEMENT_TYP
 STATEMENT_LABELS_SET: frozenset[str] = frozenset(label for _, label in STATEMENT_TYPES)
 STATEMENT_KEYS: list[str] = [k for k, _ in STATEMENT_TYPES]
 STATEMENT_KEYS_SET: frozenset[str] = frozenset(STATEMENT_KEYS)
-
-
-def normalize_statement_type(raw: str) -> str:
-    """
-    Normalise a free-form statement type string to its canonical snake_case key.
-
-    Handles user-supplied labels ("Income Statement"), route params that may
-    include spaces or mixed case, and keys that are already normalised.
-
-    Examples:
-      "Income Statement" -> "income_statement"
-      "Balance Sheet"    -> "balance_sheet"
-      "income_statement" -> "income_statement"  (idempotent)
-    """
-    return raw.strip().lower().replace(" ", "_")
