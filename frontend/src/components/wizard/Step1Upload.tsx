@@ -21,7 +21,7 @@ import {
   appendToCompanyDataset,
 } from '../../api/client'
 import { API_BASE } from '../../api/client'
-import type { Company, CompanyContextStatus } from '../../types'
+import type { Company, CompanyContextStatus, StatusMessage } from '../../types'
 import { useFileUpload } from '../../hooks/useFileUpload'
 import {
   Upload,
@@ -33,8 +33,6 @@ import approveSfx from '../../assets/approve.mp3'
 const approveAudio = new Audio(approveSfx)
 approveAudio.preload = 'auto'
 approveAudio.load()
-
-type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
 
 // ── Main component ────────────────────────────────────────────────────────
 

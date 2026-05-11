@@ -11,9 +11,7 @@
  */
 import { useState } from 'react'
 import { continuePreviousReview } from '../api/client'
-import type { Layer1Result, Layer2Result, Correction } from '../types'
-
-type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
+import type { Layer1Result, Layer2Result, Correction, StatusMessage } from '../types'
 
 interface DuplicateCheck {
   exists: boolean

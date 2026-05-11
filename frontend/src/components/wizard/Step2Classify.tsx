@@ -10,8 +10,7 @@ import LoadingSpinner from '../shared/LoadingSpinner'
 import StatusBanner from '../shared/StatusBanner'
 import ClassifyActionBar from './ClassifyActionBar'
 import ClassifyLoadingView from './ClassifyLoadingView'
-
-type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
+import type { StatusMessage } from '../../types'
 
 export default function Step2Classify() {
   const {

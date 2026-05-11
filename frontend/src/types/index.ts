@@ -1,5 +1,7 @@
 // All TypeScript interfaces for the Financial Analysis Platform
 
+export type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
+
 export interface WizardState {
   // Metadata
   companyName: string
