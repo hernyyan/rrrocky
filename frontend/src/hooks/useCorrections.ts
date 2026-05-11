@@ -17,16 +17,6 @@ interface UseCorrectionsOptions {
   onStatus?: (msg: { type: 'success' | 'error' | 'info'; message: string }) => void
 }
 
-function buildOverrides(corrections: Correction[]): Record<string, number> {
-  const overrides: Record<string, number> = {}
-  for (const c of corrections) {
-    if (CALCULATED_FIELDS.has(c.fieldName)) {
-      overrides[c.fieldName] = c.correctedValue
-    }
-  }
-  return overrides
-}
-
 export function useCorrections({
   sessionId,
   companyId,
@@ -79,8 +69,14 @@ export function useCorrections({
       for (const c of allCorrections) {
         baseValues[c.fieldName] = c.correctedValue
       }
+      const overrides: Record<string, number> = {}
+      for (const c of allCorrections) {
+        if (CALCULATED_FIELDS.has(c.fieldName)) {
+          overrides[c.fieldName] = c.correctedValue
+        }
+      }
       try {
-        const result = await recalculate(stmtType, baseValues, buildOverrides(allCorrections))
+        const result = await recalculate(stmtType, baseValues, overrides)
         setLayer2Results({
           ...layer2Results,
           [stmtType]: { ...currentL2, values: result.values },
@@ -139,8 +135,14 @@ export function useCorrections({
       for (const c of allCorrections) {
         baseValues[c.fieldName] = c.correctedValue
       }
+      const overrides: Record<string, number> = {}
+      for (const c of allCorrections) {
+        if (CALCULATED_FIELDS.has(c.fieldName)) {
+          overrides[c.fieldName] = c.correctedValue
+        }
+      }
       try {
-        const result = await recalculate(stmtType, baseValues, buildOverrides(allCorrections))
+        const result = await recalculate(stmtType, baseValues, overrides)
         setLayer2Results({
           ...layer2Results,
           [stmtType]: { ...currentL2, values: result.values },
