@@ -6,10 +6,13 @@ GET /admin/alerts              — Entries from context_alerts table (with dupli
 PUT /admin/alerts/update-status— Update alert status by DB id
 GET /admin/general-fixes       — Rows from general_fixes.csv
 """
+import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.db.database import get_db
 from app.models.schemas import AlertStatusUpdateRequest
@@ -49,7 +52,17 @@ def admin_update_alert_status(
     db: Session = Depends(get_db),
 ):
     """Update the status of an alert by its DB id (sent as 'index' for backward compat)."""
-    return update_alert_status(request.index, request.new_status, db)
+    try:
+        result = update_alert_status(request.index, request.new_status, db)
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.warning("Failed to update alert %s: %s", request.index, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to update alert: {exc}")
+    return result
 
 
 @router.get("/general-fixes")

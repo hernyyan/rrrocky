@@ -8,6 +8,8 @@ PUT    /admin/companies/{company_id}/rename   — Rename a company everywhere
 POST   /admin/companies                       — Create a new company
 DELETE /admin/companies/{company_id}          — Delete a company and all its data
 """
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -23,6 +25,7 @@ from app.services.company_service import (
     rename_company,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin")
 
 
@@ -57,7 +60,16 @@ def admin_rename_company(
         raise HTTPException(status_code=422, detail="Name cannot be empty.")
 
     _, old_name, old_context = get_company_or_404(company_id, db)
-    rename_company(company_id, old_name, old_context, new_name, db)
+    try:
+        rename_company(company_id, old_name, old_context, new_name, db)
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.warning("Failed to rename company %s → %s: %s", old_name, new_name, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to rename company: {exc}")
     return {"success": True, "old_name": old_name, "new_name": new_name}
 
 
@@ -67,7 +79,16 @@ def admin_create_company(
     db: Session = Depends(get_db),
 ):
     """Create a new company."""
-    new_id, name = _create_company(request.name, db)
+    try:
+        new_id, name = _create_company(request.name, db)
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.warning("Failed to create company '%s': %s", request.name, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to create company: {exc}")
     return {"id": new_id, "name": name}
 
 
@@ -75,5 +96,14 @@ def admin_create_company(
 def admin_delete_company(company_id: int, db: Session = Depends(get_db)):
     """Delete a company and all its associated data (corrections, datasets)."""
     _, company_name, _ = get_company_or_404(company_id, db)
-    _delete_company(company_id, company_name, db)
+    try:
+        _delete_company(company_id, company_name, db)
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.warning("Failed to delete company %s: %s", company_name, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to delete company: {exc}")
     return {"success": True, "deleted_company": company_name}

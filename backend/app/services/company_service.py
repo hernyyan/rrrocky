@@ -50,7 +50,7 @@ def rename_company(
     """
     Rename a company everywhere: companies table, reviews, corrections, and
     the datasets directory on disk. Raises HTTPException 409 if new_name is
-    already taken by another company. Commits the DB transaction.
+    already taken by another company. Does NOT commit — caller owns the transaction.
     """
     existing = db.execute(
         text("SELECT id FROM companies WHERE LOWER(name) = LOWER(:name) AND id != :id"),
@@ -82,7 +82,6 @@ def rename_company(
         text("UPDATE company_specific_corrections SET company_name = :new WHERE company_name = :old"),
         {"new": new_name, "old": old_name},
     )
-    db.commit()
 
 
 def delete_company(company_id: int, company_name: str, db: Session) -> None:
@@ -94,7 +93,7 @@ def delete_company(company_id: int, company_name: str, db: Session) -> None:
     the company row is gone but the data directory survives.
 
     Raises HTTPException 500 if the filesystem delete fails.
-    Commits the DB transaction on success.
+    Does NOT commit — caller owns the transaction.
     """
     import shutil
 
@@ -116,7 +115,6 @@ def delete_company(company_id: int, company_name: str, db: Session) -> None:
         text("DELETE FROM companies WHERE id = :id"),
         {"id": company_id},
     )
-    db.commit()
 
 
 def normalize_company_name(name: str) -> str:
@@ -129,7 +127,7 @@ def create_company(name: str, db: Session) -> tuple[int, str]:
     Validate and insert a new company row.
 
     Returns (new_id, stripped_name) on success.
-    Raises HTTPException 400 / 409 on validation failures.
+    Raises HTTPException 400 / 409 on validation failures. Does NOT commit — caller owns the transaction.
 
     Exact-duplicate check is case-insensitive — matching the stricter
     admin behaviour (previously the public endpoint was case-sensitive,
@@ -163,7 +161,6 @@ def create_company(name: str, db: Session) -> tuple[int, str]:
         {"name": name, "ctx": f"# {name} — Classification Context\n\n"},
     )
     new_id = result.fetchone()[0]
-    db.commit()
 
     return new_id, name
 
@@ -257,14 +254,13 @@ def get_company_finalized_data(
 
 def update_company_context(company_id: int, content: str, db: Session) -> int:
     """
-    Overwrite the context field for a company. Commits immediately.
+    Overwrite the context field for a company. Does NOT commit — caller owns the transaction.
     Returns the new word count.
     """
     db.execute(
         text("UPDATE companies SET context = :ctx WHERE id = :id"),
         {"ctx": content, "id": company_id},
     )
-    db.commit()
     return markdown_body_word_count(content)
 
 

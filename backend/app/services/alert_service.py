@@ -108,7 +108,8 @@ def list_alerts(
 def update_alert_status(index: int, new_status: str, db: Session) -> dict[str, Any]:
     """
     Set the status of a context_alert by its DB id.
-    Raises HTTPException 422 for invalid statuses, 404 if not found. Commits on success.
+    Raises HTTPException 422 for invalid statuses, 404 if not found.
+    Does NOT commit — caller owns the transaction.
     """
     if new_status not in _VALID_STATUSES:
         raise HTTPException(
@@ -120,7 +121,6 @@ def update_alert_status(index: int, new_status: str, db: Session) -> dict[str, A
         text("UPDATE context_alerts SET status = :status WHERE id = :id"),
         {"status": new_status, "id": index},
     )
-    db.commit()
 
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail="Alert not found.")
