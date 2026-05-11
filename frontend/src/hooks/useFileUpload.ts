@@ -9,9 +9,10 @@
  */
 import { useState } from 'react'
 import { uploadFile, getCompanyContextStatus } from '../api/client'
-import type { CompanyContextStatus, Layer1Result, StatusMessage } from '../types'
+import type { CompanyContextStatus, Layer1Result } from '../types'
 
 type StmtType = 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
+type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
 
 interface UseFileUploadDeps {
   companyName: string

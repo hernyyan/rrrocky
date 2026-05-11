@@ -20,7 +20,9 @@ import { IS_TEMPLATE_FIELDS, BS_TEMPLATE_FIELDS } from '../utils/templateFields'
 import { assembleValues } from '../utils/assembleValues'
 import { getFailingFieldNames, buildFinalizeRows } from '../utils/finalizeRows'
 import type { FinalizeRow } from '../utils/finalizeRows'
-import type { Correction, Layer2Result, TemplateResponse, TemplateSection, StatusMessage } from '../types'
+import type { Correction, Layer2Result, TemplateResponse, TemplateSection } from '../types'
+
+type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
 
 interface UseStep3FinalizeOptions {
   sessionId: string | null

@@ -7,7 +7,7 @@
  */
 import { useState } from 'react'
 import { runLayer1, saveLayer1Template, checkExistingReview } from '../api/client'
-import type { Layer1Result, Layer1Template, Layer1TemplateRow, TemplateCheckResult, StatusMessage } from '../types'
+import type { Layer1Result, Layer1Template, Layer1TemplateRow, TemplateCheckResult } from '../types'
 
 export type ExtractionStatus = 'idle' | 'running' | 'done' | 'error'
 
@@ -23,6 +23,8 @@ export type TemplateReviewState = {
   statementType: string
   unmatchedItems?: Layer1TemplateRow[]
 } | null
+
+type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
 type DuplicateCheck = { exists: boolean; sessionId: string; finalizedAt: string | null } | null
 type PendingExtraction = { type: 'pdf' } | { type: 'global' } | null
 

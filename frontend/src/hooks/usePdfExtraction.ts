@@ -7,9 +7,10 @@
  */
 import { useState } from 'react'
 import { runLayer1Pdf, checkExistingReview } from '../api/client'
-import type { Layer1Result, StatusMessage } from '../types'
+import type { Layer1Result } from '../types'
 
 type StmtType = 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
+type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
 type DuplicateCheck = { exists: boolean; sessionId: string; finalizedAt: string | null } | null
 type PendingExtraction = { type: 'pdf' } | { type: 'global' } | null
 
