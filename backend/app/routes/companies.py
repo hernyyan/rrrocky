@@ -11,7 +11,7 @@ from sqlalchemy import text
 from app.db.database import get_db
 from app.models.schemas import CompanyCreate, CompanyResponse, ReprocessResponse, ReprocessCorrectionResult
 from app.services.company_service import create_company as _create_company
-from app.utils.text_utils import markdown_body_word_count, count_context_rules
+from app.utils.text_utils import markdown_body_word_count
 
 router = APIRouter()
 
@@ -44,7 +44,9 @@ def get_context_status(company_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Company not found")
 
     company_name, context = row[0], row[1] or ""
-    rule_count = count_context_rules(context)
+    lines = context.split("\n")
+    rule_lines = [l for l in lines if l.strip().startswith("- ")]
+    rule_count = len(rule_lines)
     has_rules = rule_count > 0
     wc = markdown_body_word_count(context) if has_rules else 0
 
@@ -72,10 +74,30 @@ def reprocess_corrections(company_id: int, db: Session = Depends(get_db)):
 
     company_name: str = row[1]
 
-    from app.services.company_context_service import reset_company_for_reprocessing, process_pending_corrections
-    reset_company_for_reprocessing(company_id, company_name, db)
+    # Reset context to blank header
+    db.execute(
+        text("UPDATE companies SET context = :ctx WHERE id = :id"),
+        {"ctx": f"# {company_name} — Classification Context\n\n", "id": company_id},
+    )
+
+    # Delete this company's changelog entries from the DB table
+    db.execute(
+        text("DELETE FROM correction_changelog WHERE company_id = :company_id"),
+        {"company_id": company_id},
+    )
+
+    # Reset all corrections for this company to unprocessed
+    db.execute(
+        text(
+            "UPDATE company_specific_corrections SET processed = FALSE "
+            "WHERE company_id = :company_id"
+        ),
+        {"company_id": company_id},
+    )
     db.commit()
 
+    # Re-run the pipeline for all pending corrections
+    from app.services.company_context_service import process_pending_corrections
     raw_results = process_pending_corrections(company_id, db)
 
     results = [

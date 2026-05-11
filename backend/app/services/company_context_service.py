@@ -1,12 +1,8 @@
 """
 Company Context Service — public entry points for the correction pipeline.
 
-reset_company_for_reprocessing(company_id, company_name, db)
-                               — wipe context + changelog + processed flags
-process_correction(correction_id, db)
-                               — run pipeline for a single queued correction
-process_pending_corrections(company_id, db)
-                               — run pipeline for all unprocessed corrections
+process_correction(correction_id, db)          — run pipeline for a single queued correction
+process_pending_corrections(company_id, db)    — run pipeline for all unprocessed corrections
 
 Both delegate to CorrectionPipeline. These functions exist for backward compatibility
 with routes/companies.py (reprocess endpoint) and correction_router.py.
@@ -20,32 +16,6 @@ from sqlalchemy import text
 from app.services.correction_pipeline import get_pipeline, PipelineResult
 
 logger = logging.getLogger(__name__)
-
-
-def reset_company_for_reprocessing(company_id: int, company_name: str, db: Session) -> None:
-    """
-    Prepare a company for a full correction reprocess:
-      1. Reset context to blank header
-      2. Delete this company's changelog entries
-      3. Mark all company_specific_corrections as unprocessed
-
-    Caller is responsible for calling db.commit() after this returns.
-    """
-    db.execute(
-        text("UPDATE companies SET context = :ctx WHERE id = :id"),
-        {"ctx": f"# {company_name} — Classification Context\n\n", "id": company_id},
-    )
-    db.execute(
-        text("DELETE FROM correction_changelog WHERE company_id = :company_id"),
-        {"company_id": company_id},
-    )
-    db.execute(
-        text(
-            "UPDATE company_specific_corrections SET processed = FALSE "
-            "WHERE company_id = :company_id"
-        ),
-        {"company_id": company_id},
-    )
 
 
 def process_correction(correction_id: int, db: Session) -> dict:
