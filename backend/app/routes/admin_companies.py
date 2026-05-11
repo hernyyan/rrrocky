@@ -29,26 +29,26 @@ router = APIRouter(prefix="/admin")
 def admin_list_companies(db: Session = Depends(get_db)):
     """List all companies with context metadata and correction counts."""
     rows = db.execute(
-        text("""
-            SELECT
-                c.id,
-                c.name,
-                c.context,
-                COUNT(csc.id) AS total_corrections,
-                SUM(CASE WHEN csc.processed THEN 1 ELSE 0 END) AS processed_corrections
-            FROM companies c
-            LEFT JOIN company_specific_corrections csc ON csc.company_id = c.id
-            GROUP BY c.id, c.name, c.context
-            ORDER BY c.name ASC
-        """)
+        text("SELECT id, name, context FROM companies ORDER BY name ASC")
     ).fetchall()
 
     results = []
     for row in rows:
         company_id, name, context = row[0], row[1], row[2] or ""
         word_count = markdown_body_word_count(context) if context.strip() else 0
-        total = row[3] or 0
-        processed = row[4] or 0
+
+        counts = db.execute(
+            text("""
+                SELECT COUNT(*) AS total,
+                       SUM(CASE WHEN processed THEN 1 ELSE 0 END) AS processed
+                FROM company_specific_corrections
+                WHERE company_id = :company_id
+            """),
+            {"company_id": company_id},
+        ).fetchone()
+        total = counts[0] or 0
+        processed = counts[1] or 0
+
         results.append({
             "id": company_id,
             "name": name,
