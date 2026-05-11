@@ -15,8 +15,8 @@ import {
   adminGetCompanyData,
   adminGetCompanyCorrections,
   adminRenameCompany,
-} from '../components/admin/AdminApiClient'
-import type { AdminCompanyContext, CompanyPeriodData, AdminCorrection } from '../components/admin/AdminApiClient'
+} from '../api/client'
+import type { AdminCompanyContext, CompanyPeriodData, AdminCorrection } from '../api/client'
 
 interface UseCompanyDetailOptions {
   companyId: number

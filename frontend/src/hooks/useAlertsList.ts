@@ -7,7 +7,7 @@
  *   - handleStatusUpdate — optimistically marks updating, calls API, reloads
  */
 import { useCallback, useEffect, useState } from 'react'
-import { adminGetAlerts, adminUpdateAlertStatus } from '../components/admin/AdminApiClient'
+import { adminGetAlerts, adminUpdateAlertStatus } from '../api/client'
 
 export type AlertStatus = 'open' | 'resolved' | 'fixed' | 'all'
 

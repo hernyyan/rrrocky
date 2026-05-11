@@ -14,7 +14,7 @@
  * row labels, and cell values.
  */
 import { useState } from 'react'
-import type { CompanyPeriodData } from '../components/admin/AdminApiClient'
+import type { CompanyPeriodData } from '../api/client'
 import { useTemplate } from './useTemplate'
 import { ALL_STATEMENT_TYPES } from '../utils/statementMeta'
 import { type ParsedPeriod, parseReportingPeriod } from '../utils/periodUtils'

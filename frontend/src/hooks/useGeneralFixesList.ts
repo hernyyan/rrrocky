@@ -10,7 +10,7 @@
  *   - columns derivation — Object.keys of first entry
  */
 import { useEffect, useState } from 'react'
-import { adminGetGeneralFixes } from '../components/admin/AdminApiClient'
+import { adminGetGeneralFixes } from '../api/client'
 import { useTableSort } from './useTableSort'
 
 export type SortField = 'timestamp' | 'period' | 'statement_type' | 'field_name' | 'company'

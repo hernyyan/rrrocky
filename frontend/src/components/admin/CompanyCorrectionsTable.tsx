@@ -1,6 +1,6 @@
 import type { StatementType } from '../../types'
 import { STATEMENT_ABBREVS } from '../../utils/statementMeta'
-import { AdminCorrection } from './AdminApiClient'
+import type { AdminCorrection } from '../../api/client'
 
 function formatVal(v: unknown): string {
   if (v === null || v === undefined) return '—'

@@ -1,4 +1,4 @@
-import { CompanyPeriodData } from './AdminApiClient'
+import type { CompanyPeriodData } from '../../api/client'
 import { BOLD_FIELDS, ITALIC_FIELDS, isIndented } from '../../utils/templateStyling'
 import { useCompanyDataTable, DataView } from '../../hooks/useCompanyDataTable'
 
