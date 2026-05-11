@@ -15,6 +15,7 @@ export default function ReviewsList() {
     displayed,
     total,
     loading,
+    error,
     statusFilter,
     setStatusFilter,
     companyFilter,
@@ -67,6 +68,9 @@ export default function ReviewsList() {
         </select>
       </div>
 
+      {error && (
+        <div className="text-center py-6 text-sm text-red-500">{error}</div>
+      )}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />

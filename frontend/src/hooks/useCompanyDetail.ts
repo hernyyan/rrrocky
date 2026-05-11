@@ -29,6 +29,7 @@ export function useCompanyDetail({ companyId }: UseCompanyDetailOptions) {
   const [periods, setPeriods] = useState<CompanyPeriodData[]>([])
   const [corrections, setCorrections] = useState<AdminCorrection[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Rename state
   const [renaming, setRenaming] = useState(false)
@@ -38,6 +39,7 @@ export function useCompanyDetail({ companyId }: UseCompanyDetailOptions) {
 
   useEffect(() => {
     setLoading(true)
+    setError(null)
     Promise.all([
       adminGetCompanyContext(companyId),
       adminGetCompanyData(companyId),
@@ -49,7 +51,7 @@ export function useCompanyDetail({ companyId }: UseCompanyDetailOptions) {
         setPeriods(data.periods)
         setCorrections(corr.corrections)
       })
-      .catch(console.error)
+      .catch((err) => setError(getErrorMessage(err, 'Failed to load company data.')))
       .finally(() => setLoading(false))
   }, [companyId])
 
@@ -85,6 +87,7 @@ export function useCompanyDetail({ companyId }: UseCompanyDetailOptions) {
     periods,
     corrections,
     loading,
+    error,
     renaming,
     renameText,
     setRenameText,
