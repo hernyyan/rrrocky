@@ -29,7 +29,7 @@ from app.services.layer1_extractor import (
     extract_rows_with_metadata,
     rows_to_csv_with_metadata,
 )
-from app.utils.statement_meta import STATEMENT_KEYS_SET
+from app.utils.statement_meta import STATEMENT_KEYS_SET, normalize_statement_type
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class Layer1Service:
             }
         """
         model = os.getenv("LAYER1_MODEL", "claude-sonnet-4-6")
-        normalized = sheet_type.lower().replace(" ", "_")
+        normalized = normalize_statement_type(sheet_type)
         if normalized not in _VALID_TYPES:
             raise ValueError(
                 f"Unknown sheet_type '{sheet_type}'. "

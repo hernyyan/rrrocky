@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from app.config import PROMPTS_DIR
 from app.db.review_store import merge_layer1_data
 from app.services.claude_service import ClaudeService
-from app.utils.statement_meta import STATEMENT_KEYS_SET
+from app.utils.statement_meta import STATEMENT_KEYS_SET, normalize_statement_type
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class Layer1PdfService:
         Returns a dict with keys:
           lineItems, sourceScaling, columnIdentified, sheetName
         """
-        normalized = statement_type.lower().replace(" ", "_")
+        normalized = normalize_statement_type(statement_type)
         if normalized not in STATEMENT_KEYS_SET:
             raise HTTPException(
                 status_code=400,
