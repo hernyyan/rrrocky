@@ -118,9 +118,7 @@ export function useExcelExtraction({
                 meta: { statement_type: stmtType, created_at: new Date().toISOString() },
                 rows: r.structured.rows,
               }
-              saveLayer1Template(companyId, stmtType, tmpl).catch((err) => {
-                console.warn(`Auto-save template failed for ${stmtType}:`, err)
-              })
+              saveLayer1Template(companyId, stmtType, tmpl).catch(() => {})
             }
           }
 
