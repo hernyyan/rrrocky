@@ -5,7 +5,9 @@ GET    /admin/reviews                      — List all reviews with optional fi
 GET    /admin/reviews/{session_id}/export  — Download finalized output as CSV attachment
 DELETE /admin/reviews/{session_id}         — Delete a review
 """
+import csv
 import re
+from io import StringIO
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -16,6 +18,7 @@ from sqlalchemy import text
 from app.db.database import get_db
 from app.services.template_service import get_template_service
 from app.utils.json_utils import deserialize_dict, deserialize_list
+from app.utils.statement_meta import STATEMENT_TYPES
 
 router = APIRouter(prefix="/admin")
 
@@ -96,15 +99,44 @@ def admin_export_review(session_id: str, db: Session = Depends(get_db)):
     company_name: str = row[0]
     reporting_period: str = row[1]
     final_output: dict = deserialize_dict(row[2])
+    corrections: list = deserialize_list(row[3])
 
-    csv_content = get_template_service().build_export_csv(final_output)
+    template_svc = get_template_service()
+    blank_row_before = template_svc.blank_row_before_fields
+
+    output = StringIO()
+    writer = csv.writer(output)
+
+    for stmt_key, stmt_label in STATEMENT_TYPES:
+        stmt_values: dict = final_output.get(stmt_label, {})
+        if not stmt_values:
+            continue
+
+        if stmt_label in blank_row_before:
+            writer.writerow(["", ""])
+        writer.writerow([stmt_label, ""])
+
+        sections = template_svc.template.get(stmt_key, {}).get("sections", [])
+
+        for section in sections:
+            header = section.get("header")
+            if header:
+                if header in blank_row_before:
+                    writer.writerow(["", ""])
+                writer.writerow([header, ""])
+            for field in section.get("fields", []):
+                if field in blank_row_before:
+                    writer.writerow(["", ""])
+                value = stmt_values.get(field)
+                value_str = f"{value:.2f}" if value is not None else ""
+                writer.writerow([field, value_str])
 
     safe_company = re.sub(r"[^\w\s-]", "", company_name).strip().replace(" ", "_")
     safe_period = re.sub(r"[^\w\s-]", "", reporting_period).strip().replace(" ", "_")
     filename = f"{safe_company}_{safe_period}.csv"
 
     return Response(
-        content=csv_content,
+        content=output.getvalue(),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
