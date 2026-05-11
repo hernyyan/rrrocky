@@ -12,7 +12,6 @@ from sqlalchemy import text
 
 from app.db.database import get_db
 from app.models.schemas import Layer1TemplateResponse
-from app.utils.json_utils import deserialize_dict
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,9 @@ def get_layer1_template(
     if not row:
         raise HTTPException(status_code=404, detail="No template found for this company and statement type.")
 
-    template = deserialize_dict(row[3])
+    template = row[3]
+    if isinstance(template, str):
+        template = json.loads(template)
 
     return Layer1TemplateResponse(
         id=row[0],
