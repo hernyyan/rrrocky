@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWizardState } from '../../hooks/useWizardState'
-import { useExcelExtraction } from '../../hooks/useExcelExtraction'
-import { usePdfExtraction } from '../../hooks/usePdfExtraction'
 import TabSelector from '../shared/TabSelector'
 import ExcelViewer from '../shared/ExcelViewer'
 import PdfPageViewer from '../shared/PdfPageViewer'
@@ -10,14 +8,18 @@ import TemplateReview from './TemplateReview'
 import TemplateDeltaReview from './TemplateDeltaReview'
 import {
   uploadFile,
+  runLayer1,
+  runLayer1Pdf,
   getCompanies,
   createCompany,
   getCompanyContextStatus,
+  checkExistingReview,
   continuePreviousReview,
+  saveLayer1Template,
   appendToCompanyDataset,
 } from '../../api/client'
 import { API_BASE } from '../../api/client'
-import type { Company, CompanyContextStatus, Layer1Result } from '../../types'
+import type { Company, CompanyContextStatus, Layer1Result, Layer1Template, Layer1TemplateRow } from '../../types'
 import {
   Upload,
   Search,
@@ -37,6 +39,7 @@ approveAudio.preload = 'auto'
 approveAudio.load()
 
 type StatusMessage = { type: 'success' | 'error' | 'info'; message: string } | null
+type ExtractionStatus = 'idle' | 'running' | 'done' | 'error'
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -163,10 +166,29 @@ export default function Step1Upload() {
   const [contextStatus, setContextStatus] = useState<CompanyContextStatus | null>(null)
   const [contextLoading, setContextLoading] = useState(false)
 
+  // Single-tab assignment: one sheet per statement type
+  const [assignments, setAssignments] = useState<{
+    income_statement: string
+    balance_sheet: string
+    cash_flow_statement: string
+  }>({ income_statement: '', balance_sheet: '', cash_flow_statement: '' })
+
+  const [extractionStatus, setExtractionStatus] = useState<ExtractionStatus>('idle')
+  const [extractionError, setExtractionError] = useState<string | null>(null)
+
   // Resizable divider — left panel width as percentage
   const [leftPct, setLeftPct] = useState(65)
 
-  // Duplicate-check modal state (shared between Excel and PDF paths)
+  // PDF-specific local state
+  const [pdfActiveTab, setPdfActiveTab] = useState<'income_statement' | 'balance_sheet' | 'cash_flow_statement'>('income_statement')
+  const [pdfExtracting, setPdfExtracting] = useState<Record<string, boolean>>({})
+
+  // Company combobox state
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [companiesLoading, setCompaniesLoading] = useState(false)
+  const [comboOpen, setComboOpen] = useState(false)
+  const [comboSearch, setComboSearch] = useState(companyName)
+  const [creatingCompany, setCreatingCompany] = useState(false)
   const [duplicateCheck, setDuplicateCheck] = useState<{
     exists: boolean
     sessionId: string
@@ -176,56 +198,14 @@ export default function Step1Upload() {
     { type: 'pdf' } | { type: 'global' } | null
   >(null)
 
-  // Excel extraction path
-  const {
-    assignments,
-    setAssignments,
-    extractionStatus,
-    setExtractionStatus,
-    extractionError,
-    setExtractionError,
-    templateReview,
-    setTemplateReview,
-    runExtractionInner,
-    handleRunExtraction,
-    reset: resetExcelExtraction,
-  } = useExcelExtraction({
-    sessionId,
-    reportingPeriod,
-    companyName,
-    companyId,
-    mergeLayer1Result,
-    setStatus,
-    setDuplicateCheck,
-    setPendingExtraction,
-  })
+  // Template review state — shown between extraction and Step 2
+  const [templateReview, setTemplateReview] = useState<{
+    mode: 'new' | 'delta'
+    structured: Layer1Template
+    statementType: string
+    unmatchedItems?: Layer1TemplateRow[]
+  } | null>(null)
 
-  // PDF extraction path
-  const {
-    pdfActiveTab,
-    setPdfActiveTab,
-    pdfExtracting,
-    handlePdfRunAllInner,
-    handlePdfRunAll,
-    reset: resetPdfExtraction,
-  } = usePdfExtraction({
-    sessionId,
-    reportingPeriod,
-    companyName,
-    companyId,
-    pdfPageAssignments,
-    mergeLayer1Result,
-    setStatus,
-    setDuplicateCheck,
-    setPendingExtraction,
-  })
-
-  // Company combobox state
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [companiesLoading, setCompaniesLoading] = useState(false)
-  const [comboOpen, setComboOpen] = useState(false)
-  const [comboSearch, setComboSearch] = useState(companyName)
-  const [creatingCompany, setCreatingCompany] = useState(false)
   const hasUpload = uploadFileType === 'excel'
     ? sheetNames.length > 0
     : uploadFileType === 'pdf'
@@ -416,7 +396,9 @@ export default function Step1Upload() {
         setPdfPageCount(0)
         setPdfUrl(null)
         setPdfPageAssignments({})
-        resetExcelExtraction()
+        setAssignments({ income_statement: '', balance_sheet: '', cash_flow_statement: '' })
+        setExtractionStatus('idle')
+        setExtractionError(null)
       }
 
       setStatus({
@@ -485,8 +467,9 @@ export default function Step1Upload() {
     setSheetNames([])
     setWorkbookUrl(null)
     setLayer1Results({})
-    resetExcelExtraction()
-    resetPdfExtraction()
+    setAssignments({ income_statement: '', balance_sheet: '', cash_flow_statement: '' })
+    setExtractionStatus('idle')
+    setExtractionError(null)
     setStatus(null)
     setContextStatus(null)
     setUploadFileType(null)
@@ -502,8 +485,9 @@ export default function Step1Upload() {
     setSheetNames([])
     setWorkbookUrl(null)
     setLayer1Results({})
-    resetExcelExtraction()
-    resetPdfExtraction()
+    setAssignments({ income_statement: '', balance_sheet: '', cash_flow_statement: '' })
+    setExtractionStatus('idle')
+    setExtractionError(null)
     setStatus(null)
     setContextStatus(null)
     setUploadFileType(null)
@@ -512,7 +496,7 @@ export default function Step1Upload() {
     setPdfPageAssignments({})
   }
 
-  // ── PDF page assignment (stays in parent — writes wizard state) ─────────
+  // ── PDF extraction ──────────────────────────────────────────────────────
 
   function handlePdfPageClick(pageNumber: number) {
     const current = pdfPageAssignments[pageNumber]
@@ -523,6 +507,191 @@ export default function Step1Upload() {
       newAssignments[pageNumber] = pdfActiveTab
     }
     setPdfPageAssignments(newAssignments)
+  }
+
+  async function handlePdfRunAllInner() {
+    const stmtTypes: ('income_statement' | 'balance_sheet' | 'cash_flow_statement')[] =
+      ['income_statement', 'balance_sheet', 'cash_flow_statement']
+
+    const toRun = stmtTypes.filter((type) =>
+      Object.values(pdfPageAssignments).includes(type),
+    )
+
+    if (toRun.length === 0) {
+      setStatus({ type: 'error', message: 'Select pages for at least one statement before running extraction.' })
+      return
+    }
+
+    const extracting: Record<string, boolean> = {}
+    for (const type of toRun) extracting[type] = true
+    setPdfExtracting(extracting)
+    setStatus(null)
+
+    await Promise.allSettled(toRun.map(async (type) => {
+      const pages = Object.entries(pdfPageAssignments)
+        .filter(([, t]) => t === type)
+        .map(([p]) => parseInt(p))
+        .sort((a, b) => a - b)
+      try {
+        const result = await runLayer1Pdf(sessionId!, pages, type, reportingPeriod)
+        mergeLayer1Result(type, {
+          lineItems: result.lineItems,
+          sourceScaling: result.sourceScaling,
+          columnIdentified: result.columnIdentified,
+          sourceSheet: `PDF pages ${pages.join(', ')}`,
+        })
+      } catch (err) {
+        setStatus({ type: 'error', message: `Extraction failed for ${type}: ${err instanceof Error ? err.message : 'Unknown error'}` })
+      } finally {
+        setPdfExtracting((prev) => ({ ...prev, [type]: false }))
+      }
+    }))
+  }
+
+  async function handlePdfRunAll() {
+    if (!sessionId || !reportingPeriod.trim() || !companyName.trim()) {
+      setStatus({ type: 'error', message: 'Please enter company name and reporting period before running extraction.' })
+      return
+    }
+
+    if (companyId) {
+      try {
+        const existing = await checkExistingReview(companyId, reportingPeriod)
+        if (existing.exists) {
+          setDuplicateCheck({
+            exists: true,
+            sessionId: existing.session_id!,
+            finalizedAt: existing.finalized_at ?? null,
+          })
+          setPendingExtraction({ type: 'pdf' })
+          return
+        }
+      } catch {
+        // proceed on check failure
+      }
+    }
+
+    handlePdfRunAllInner()
+  }
+
+  // ── Excel extraction ────────────────────────────────────────────────────
+
+  async function runExtractionInner() {
+    setExtractionStatus('running')
+    setExtractionError(null)
+
+    const stmtTypes = ['income_statement', 'balance_sheet', 'cash_flow_statement'] as const
+    const results: Record<string, Awaited<ReturnType<typeof runLayer1>>> = {}
+
+    // Determine which tabs are shared across multiple statement types
+    const assignedTabs = stmtTypes.map(s => assignments[s]).filter(Boolean)
+    const tabCounts: Record<string, number> = {}
+    for (const t of assignedTabs) tabCounts[t] = (tabCounts[t] ?? 0) + 1
+
+    const tasks = stmtTypes
+      .filter(stmtType => assignments[stmtType])
+      .map(async (stmtType) => {
+        const tab = assignments[stmtType]
+        const sharedTab = tabCounts[tab] > 1
+        const result = await runLayer1(sessionId!, tab, stmtType, reportingPeriod, undefined, companyId, sharedTab)
+        results[stmtType] = result
+        mergeLayer1Result(stmtType, {
+          lineItems: result.lineItems,
+          sourceScaling: result.sourceScaling,
+          columnIdentified: result.columnIdentified,
+          sourceSheet: tab,
+          structured: result.structured,
+          templateCheck: result.templateCheck,
+        })
+      })
+
+    try {
+      const settled = await Promise.allSettled(tasks)
+      const failed = settled.filter(s => s.status === 'rejected')
+      if (failed.length > 0 && settled.every(s => s.status === 'rejected')) {
+        // All tasks failed
+        const msg = (failed[0] as PromiseRejectedResult).reason?.message ?? 'Extraction failed.'
+        setExtractionStatus('error')
+        setExtractionError(msg)
+        setStatus({ type: 'error', message: msg })
+        return
+      }
+      if (failed.length > 0) {
+        // Some failed — warn but continue with partial results
+        const msg = (failed[0] as PromiseRejectedResult).reason?.message ?? 'One or more extractions failed.'
+        setStatus({ type: 'error', message: msg })
+      }
+      setExtractionStatus('done')
+
+      // Handle template review for IS (if companyId is set)
+      if (companyId) {
+        const isResult = results['income_statement']
+        if (isResult?.structured) {
+          const check = isResult.templateCheck
+
+          // Auto-save BS/CFS templates silently if no template exists
+          for (const stmtType of ['balance_sheet', 'cash_flow_statement'] as const) {
+            const r = results[stmtType]
+            if (r?.structured && check && !check.has_template) {
+              const tmpl: Layer1Template = {
+                meta: { statement_type: stmtType, created_at: new Date().toISOString() },
+                rows: r.structured.rows,
+              }
+              saveLayer1Template(companyId, stmtType, tmpl).catch(() => {})
+            }
+          }
+
+          if (!check || !check.has_template) {
+            // First upload — show IS template review
+            setTemplateReview({
+              mode: 'new',
+              structured: isResult.structured,
+              statementType: 'income_statement',
+            })
+            return
+          }
+
+          if (check.has_template && check.unmatched_items && check.unmatched_items.length > 0) {
+            // Existing template with new unmatched items
+            setTemplateReview({
+              mode: 'delta',
+              structured: isResult.structured,
+              statementType: 'income_statement',
+              unmatchedItems: check.unmatched_items,
+            })
+            return
+          }
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Extraction failed.'
+      setExtractionStatus('error')
+      setExtractionError(msg)
+      setStatus({ type: 'error', message: msg })
+    }
+  }
+
+  async function handleRunExtraction() {
+    if (!sessionId || !reportingPeriod.trim() || !companyName.trim()) return
+
+    if (companyId) {
+      try {
+        const existing = await checkExistingReview(companyId, reportingPeriod)
+        if (existing.exists) {
+          setDuplicateCheck({
+            exists: true,
+            sessionId: existing.session_id!,
+            finalizedAt: existing.finalized_at ?? null,
+          })
+          setPendingExtraction({ type: 'global' })
+          return
+        }
+      } catch {
+        // proceed on check failure
+      }
+    }
+
+    runExtractionInner()
   }
 
   async function handleContinuePrevious() {
