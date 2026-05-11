@@ -138,18 +138,6 @@ CREATE TABLE IF NOT EXISTS context_alerts (
 );
 """
 
-_SQLITE_CREATE_STATEMENT_TAB_CONFIGS = """
-CREATE TABLE IF NOT EXISTS statement_tab_configs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER NOT NULL,
-    statement_type TEXT NOT NULL,
-    tab TEXT NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (company_id) REFERENCES companies(id),
-    UNIQUE(company_id, statement_type)
-);
-"""
-
 
 # ── PostgreSQL CREATE TABLE statements ────────────────────────────────────────
 
@@ -243,18 +231,6 @@ CREATE TABLE IF NOT EXISTS context_alerts (
 );
 """
 
-_PG_CREATE_STATEMENT_TAB_CONFIGS = """
-CREATE TABLE IF NOT EXISTS statement_tab_configs (
-    id SERIAL PRIMARY KEY,
-    company_id INTEGER NOT NULL,
-    statement_type TEXT NOT NULL,
-    tab TEXT NOT NULL,
-    updated_at TIMESTAMP DEFAULT NOW(),
-    FOREIGN KEY (company_id) REFERENCES companies(id),
-    UNIQUE(company_id, statement_type)
-);
-"""
-
 # ── Idempotent migrations for pre-existing databases ─────────────────────────
 
 _MIGRATIONS = [
@@ -292,7 +268,6 @@ def init_db() -> None:
             _SQLITE_CREATE_LAYER1_TEMPLATES,
             _SQLITE_CREATE_CORRECTION_CHANGELOG,
             _SQLITE_CREATE_CONTEXT_ALERTS,
-            _SQLITE_CREATE_STATEMENT_TAB_CONFIGS,
         ]
     else:
         ddl_statements = [
@@ -302,7 +277,6 @@ def init_db() -> None:
             _PG_CREATE_LAYER1_TEMPLATES,
             _PG_CREATE_CORRECTION_CHANGELOG,
             _PG_CREATE_CONTEXT_ALERTS,
-            _PG_CREATE_STATEMENT_TAB_CONFIGS,
         ]
 
     # Each CREATE TABLE runs in its own transaction so a failed migration

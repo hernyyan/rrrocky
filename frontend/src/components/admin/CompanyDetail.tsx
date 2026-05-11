@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { ChevronLeft, Check, X, Edit3, Loader2 } from 'lucide-react'
 import { useCompanyDetail } from '../../hooks/useCompanyDetail'
-import { getStatementTabConfigs, StatementTabConfig } from '../../api/client'
 import CompanyContextEditor from './CompanyContextEditor'
 import TemplateFieldList from './TemplateFieldList'
 import RuleWriter from './RuleWriter'
@@ -15,7 +14,7 @@ interface Props {
   onBack: () => void
 }
 
-type Tab = 'data' | 'corrections' | 'datasets' | 'l1_templates' | 'tab_config'
+type Tab = 'data' | 'corrections' | 'datasets' | 'l1_templates'
 
 
 export default function CompanyDetail({ companyId, onBack }: Props) {
@@ -38,11 +37,6 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
 
   const [activeTab, setActiveTab] = useState<Tab>('data')
   const [selectedField, setSelectedField] = useState<{ name: string; statementType: string } | null>(null)
-  const [tabConfigs, setTabConfigs] = useState<Record<string, StatementTabConfig>>({})
-
-  useEffect(() => {
-    getStatementTabConfigs(companyId).then(setTabConfigs).catch(() => {})
-  }, [companyId])
 
   if (loading) {
     return (
@@ -57,7 +51,6 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
     { key: 'corrections', label: `Corrections (${corrections.length})` },
     { key: 'datasets', label: 'Datasets' },
     { key: 'l1_templates', label: 'L1 Templates' },
-    { key: 'tab_config', label: 'Tab Config' },
   ]
 
   return (
@@ -193,27 +186,6 @@ export default function CompanyDetail({ companyId, onBack }: Props) {
 
           {activeTab === 'l1_templates' && (
             <Layer1TemplatesTab companyId={companyId} />
-          )}
-
-          {activeTab === 'tab_config' && (
-            <div className="h-full overflow-auto p-4">
-              {Object.keys(tabConfigs).length === 0 ? (
-                <p className="text-[12px] text-muted-foreground">No tab configs saved for this company.</p>
-              ) : (
-                <div className="space-y-3">
-                  {Object.entries(tabConfigs).map(([stmtType, config]) => (
-                    <div key={stmtType} className="flex items-center gap-3 px-3 py-2 border border-border rounded-lg bg-white text-[12px]">
-                      <span className="text-muted-foreground uppercase" style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.05em', minWidth: 160 }}>
-                        {stmtType.replace(/_/g, ' ')}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono text-[11px]">
-                        {config.tab}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           )}
         </div>
       </div>
