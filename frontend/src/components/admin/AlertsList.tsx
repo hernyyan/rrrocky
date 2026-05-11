@@ -1,5 +1,8 @@
+import { useCallback, useEffect, useState } from 'react'
 import { Loader2, CheckCircle2 } from 'lucide-react'
-import { useAlertsList, type AlertStatus } from '../../hooks/useAlertsList'
+import { adminGetAlerts, adminUpdateAlertStatus } from './AdminApiClient'
+
+type AlertStatus = 'open' | 'resolved' | 'fixed' | 'all'
 
 const STATUS_TABS: { key: AlertStatus; label: string }[] = [
   { key: 'open', label: 'Open' },
@@ -41,7 +44,38 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function AlertsList() {
-  const { alerts, total, loading, statusFilter, setStatusFilter, updating, handleStatusUpdate } = useAlertsList()
+  const [alerts, setAlerts] = useState<Record<string, unknown>[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<AlertStatus>('open')
+  const [updating, setUpdating] = useState<number | null>(null)
+
+  const loadAlerts = useCallback(() => {
+    setLoading(true)
+    adminGetAlerts(statusFilter)
+      .then((data) => {
+        setAlerts(data.alerts)
+        setTotal(data.total_alerts)
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [statusFilter])
+
+  useEffect(() => {
+    loadAlerts()
+  }, [loadAlerts])
+
+  async function handleStatusUpdate(fileIndex: number, newStatus: string) {
+    setUpdating(fileIndex)
+    try {
+      await adminUpdateAlertStatus(fileIndex, newStatus)
+      loadAlerts()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update alert')
+    } finally {
+      setUpdating(null)
+    }
+  }
 
   return (
     <div className="p-6">
