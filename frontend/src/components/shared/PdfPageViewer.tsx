@@ -4,7 +4,6 @@ import 'react-pdf/dist/Page/TextLayer.css'
 import { FileText, Loader2, Minus, Plus } from 'lucide-react'
 import { usePdfViewer } from '../../hooks/usePdfViewer'
 import type { StatementType } from '../../types'
-import { ALL_STATEMENT_TYPES, STATEMENT_LABELS, STATEMENT_ABBREVS } from '../../utils/statementMeta'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -13,17 +12,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 type Assignment = StatementType | undefined
 
-// Per-statement-type color data. Full Tailwind classes kept as literals for JIT.
-const ASSIGNMENT_CLASSES: Record<StatementType, { border: string; bg: string; ring: string; badge: string }> = {
-  income_statement:    { border: 'border-blue-500',    bg: 'bg-blue-500 border-blue-500 hover:ring-blue-300',        ring: 'ring-2 ring-blue-400',    badge: 'bg-blue-500'    },
-  balance_sheet:       { border: 'border-emerald-500', bg: 'bg-emerald-500 border-emerald-500 hover:ring-emerald-300', ring: 'ring-2 ring-emerald-400', badge: 'bg-emerald-500' },
-  cash_flow_statement: { border: 'border-purple-500',  bg: 'bg-purple-500 border-purple-500 hover:ring-purple-300',   ring: 'ring-2 ring-purple-400',  badge: 'bg-purple-500'  },
-}
-const UNASSIGNED_CLASSES = { border: 'border-gray-200', bg: 'bg-white border-gray-300 hover:ring-gray-300', ring: '', badge: '', label: '' }
-
+// Central mapping for statement-type → color. Single place to update if colors change.
 function assignmentClasses(a: Assignment) {
-  if (!a) return UNASSIGNED_CLASSES
-  return { ...ASSIGNMENT_CLASSES[a], label: STATEMENT_ABBREVS[a] }
+  if (a === 'income_statement')  return { border: 'border-blue-500',    bg: 'bg-blue-500 border-blue-500 hover:ring-blue-300',     ring: 'ring-2 ring-blue-400',    badge: 'bg-blue-500',    label: 'IS' }
+  if (a === 'balance_sheet')     return { border: 'border-emerald-500', bg: 'bg-emerald-500 border-emerald-500 hover:ring-emerald-300', ring: 'ring-2 ring-emerald-400', badge: 'bg-emerald-500', label: 'BS' }
+  if (a === 'cash_flow_statement') return { border: 'border-purple-500', bg: 'bg-purple-500 border-purple-500 hover:ring-purple-300',  ring: 'ring-2 ring-purple-400',  badge: 'bg-purple-500',  label: 'CFS' }
+  return { border: 'border-gray-200', bg: 'bg-white border-gray-300 hover:ring-gray-300', ring: '', badge: '', label: '' }
 }
 
 interface PdfPageViewerProps {
@@ -69,11 +63,15 @@ export default function PdfPageViewer({
       {/* Top info bar */}
       <div className="flex items-center gap-3 px-3 py-1.5 border-b border-border text-[11px] text-muted-foreground bg-gray-50 shrink-0">
         <span>{pageCount} pages</span>
-        {ALL_STATEMENT_TYPES.map((t) => (
-          <span key={t} className="flex items-center gap-1">
-            <span className={`w-2.5 h-2.5 rounded-sm ${ASSIGNMENT_CLASSES[t].badge} inline-block`} /> {STATEMENT_LABELS[t]}
-          </span>
-        ))}
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block" /> Income Statement
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" /> Balance Sheet
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm bg-purple-500 inline-block" /> Cash Flow Statement
+        </span>
       </div>
 
       {/* Main area: thumbnail sidebar + main view */}
