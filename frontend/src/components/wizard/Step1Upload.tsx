@@ -16,7 +16,6 @@ import {
   checkExistingReview,
   continuePreviousReview,
   saveLayer1Template,
-  appendToCompanyDataset,
 } from '../../api/client'
 import { API_BASE } from '../../api/client'
 import type { Company, CompanyContextStatus, Layer1Result, Layer1Template, Layer1TemplateRow } from '../../types'
@@ -951,10 +950,6 @@ export default function Step1Upload() {
               if (Math.random() < 0.01) {
                 approveAudio.currentTime = 0
                 approveAudio.play()
-              }
-              if (companyName && reportingPeriod && Object.keys(layer1Results).length > 0) {
-                appendToCompanyDataset(sessionId, companyName, reportingPeriod, layer1Results)
-                  .catch((err) => console.error('Dataset append failed:', err))
               }
               approveStep1()
             }}
