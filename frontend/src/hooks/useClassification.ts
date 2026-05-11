@@ -1,23 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { runLayer2 } from '../api/client'
-import type { Layer1Result, Layer2Result } from '../types'
+import type { Layer1Result, Layer2Result, StatementType } from '../types'
 
 type RunStatus = 'idle' | 'loading' | 'done' | 'error'
-type StmtType = 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
 
-const STMT_TYPES: StmtType[] = ['income_statement', 'balance_sheet', 'cash_flow_statement']
-const STMT_LABELS: Record<StmtType, string> = {
+const STMT_TYPES: StatementType[] = ['income_statement', 'balance_sheet', 'cash_flow_statement']
+const STMT_LABELS: Record<StatementType, string> = {
   income_statement: 'Income Statement',
   balance_sheet: 'Balance Sheet',
   cash_flow_statement: 'Cash Flow Statement',
 }
 
-const INIT_STATUS: Record<StmtType, RunStatus> = {
+const INIT_STATUS: Record<StatementType, RunStatus> = {
   income_statement: 'idle',
   balance_sheet: 'idle',
   cash_flow_statement: 'idle',
 }
-const INIT_ERROR: Record<StmtType, string | null> = {
+const INIT_ERROR: Record<StatementType, string | null> = {
   income_statement: null,
   balance_sheet: null,
   cash_flow_statement: null,
@@ -41,8 +40,8 @@ export function useClassification({
   layer2Results,
   setLayer2Results,
 }: UseClassificationDeps) {
-  const [stmtStatus, setStmtStatus] = useState<Record<StmtType, RunStatus>>(INIT_STATUS)
-  const [stmtError, setStmtError] = useState<Record<StmtType, string | null>>(INIT_ERROR)
+  const [stmtStatus, setStmtStatus] = useState<Record<StatementType, RunStatus>>(INIT_STATUS)
+  const [stmtError, setStmtError] = useState<Record<StatementType, string | null>>(INIT_ERROR)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const classifyingRef = useRef(false)
 
@@ -59,10 +58,10 @@ export function useClassification({
     return () => clearInterval(interval)
   }, [isClassifying])
 
-  function _setRunStatus(type: StmtType, s: RunStatus) {
+  function _setRunStatus(type: StatementType, s: RunStatus) {
     setStmtStatus((prev) => ({ ...prev, [type]: s }))
   }
-  function _setRunError(type: StmtType, err: string | null) {
+  function _setRunError(type: StatementType, err: string | null) {
     setStmtError((prev) => ({ ...prev, [type]: err }))
   }
 

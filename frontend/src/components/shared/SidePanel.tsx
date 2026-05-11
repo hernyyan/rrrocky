@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Layer2Result, Correction, ValidationCheck, CalculationMeta } from '../../types'
+import type { Layer2Result, Correction, ValidationCheck, CalculationMeta, StatementType } from '../../types'
 import { formatFieldValue } from '../../utils/formatters'
 import { CALCULATED_FIELDS, READONLY_FIELDS } from '../../utils/templateStyling'
 import CalculatedFieldPanel from './CalculatedFieldPanel'
@@ -10,7 +10,7 @@ import { X, ChevronDown, ChevronRight } from 'lucide-react'
 interface SidePanelProps {
   isOpen: boolean
   fieldName: string | null
-  statementType: 'income_statement' | 'balance_sheet' | 'cash_flow_statement' | null
+  statementType: StatementType | null
   layer2Result: Layer2Result | null
   existingCorrection?: Correction
   onClose: () => void

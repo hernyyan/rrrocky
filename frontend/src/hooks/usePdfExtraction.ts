@@ -7,18 +7,14 @@
  */
 import { useState } from 'react'
 import { runLayer1Pdf, checkExistingReview } from '../api/client'
-import type { Layer1Result, StatusMessage } from '../types'
-
-type StmtType = 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
-type DuplicateCheck = { exists: boolean; sessionId: string; finalizedAt: string | null } | null
-type PendingExtraction = { type: 'pdf' } | { type: 'global' } | null
+import type { Layer1Result, StatusMessage, StatementType, DuplicateCheck, PendingExtraction } from '../types'
 
 export interface PdfExtractionDeps {
   sessionId: string | null
   reportingPeriod: string
   companyName: string
   companyId: number | null
-  pdfPageAssignments: Record<number, StmtType>
+  pdfPageAssignments: Record<number, StatementType>
   mergeLayer1Result: (type: string, result: Layer1Result) => void
   setStatus: (s: StatusMessage) => void
   setDuplicateCheck: (v: DuplicateCheck) => void
@@ -36,11 +32,11 @@ export function usePdfExtraction({
   setDuplicateCheck,
   setPendingExtraction,
 }: PdfExtractionDeps) {
-  const [pdfActiveTab, setPdfActiveTab] = useState<StmtType>('income_statement')
+  const [pdfActiveTab, setPdfActiveTab] = useState<StatementType>('income_statement')
   const [pdfExtracting, setPdfExtracting] = useState<Record<string, boolean>>({})
 
   async function handlePdfRunAllInner() {
-    const stmtTypes: StmtType[] = ['income_statement', 'balance_sheet', 'cash_flow_statement']
+    const stmtTypes: StatementType[] = ['income_statement', 'balance_sheet', 'cash_flow_statement']
     const toRun = stmtTypes.filter((type) =>
       Object.values(pdfPageAssignments).includes(type),
     )

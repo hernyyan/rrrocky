@@ -1,7 +1,7 @@
 import { getTemplate } from '../../api/client'
 import { useEffect, useState } from 'react'
 import { BOLD_FIELDS, ITALIC_FIELDS, isIndented } from '../../utils/templateStyling'
-import type { TemplateResponse } from '../../types'
+import type { TemplateResponse, StatementType } from '../../types'
 
 interface Props {
   contextContent: string
@@ -22,7 +22,7 @@ export default function TemplateFieldList({ contextContent, selectedField, onSel
 
   if (!template) return <div className="p-3 text-[12px] text-muted-foreground">Loading template...</div>
 
-  const statements: { key: 'income_statement' | 'balance_sheet' | 'cash_flow_statement'; label: string }[] = [
+  const statements: { key: StatementType; label: string }[] = [
     { key: 'income_statement', label: 'Income Statement' },
     { key: 'balance_sheet', label: 'Balance Sheet' },
     { key: 'cash_flow_statement', label: 'Cash Flow Statement' },

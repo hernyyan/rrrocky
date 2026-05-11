@@ -11,15 +11,7 @@
  */
 import { useState } from 'react'
 import { continuePreviousReview } from '../api/client'
-import type { Layer1Result, Layer2Result, Correction, StatusMessage } from '../types'
-
-interface DuplicateCheck {
-  exists: boolean
-  sessionId: string
-  finalizedAt: string | null
-}
-
-type PendingExtraction = { type: 'pdf' } | { type: 'global' } | null
+import type { Layer1Result, Layer2Result, Correction, StatusMessage, DuplicateCheck, PendingExtraction } from '../types'
 
 interface UseDuplicateResolutionDeps {
   companyId: number | null
@@ -42,7 +34,7 @@ export function useDuplicateResolution({
   approveStep1,
   setStatus,
 }: UseDuplicateResolutionDeps) {
-  const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheck | null>(null)
+  const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheck>(null)
   const [pendingExtraction, setPendingExtraction] = useState<PendingExtraction>(null)
 
   async function handleContinuePrevious() {

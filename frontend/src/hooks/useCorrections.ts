@@ -1,14 +1,14 @@
 import { useRef, useState } from 'react'
 import { saveCorrection as saveCorrectionApi, processCorrections, recalculate } from '../api/client'
 import { CALCULATED_FIELDS } from '../utils/templateStyling'
-import type { Correction, Layer2Result } from '../types'
+import type { Correction, Layer2Result, StatementType } from '../types'
 
 interface UseCorrectionsOptions {
   sessionId: string | null
   companyId: number | null
   companyName: string
   reportingPeriod: string
-  selectedCellType: 'income_statement' | 'balance_sheet' | 'cash_flow_statement' | null
+  selectedCellType: StatementType | null
   layer2Results: Record<string, Layer2Result>
   setLayer2Results: (results: Record<string, Layer2Result>) => void
   corrections: Correction[]

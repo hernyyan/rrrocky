@@ -1,11 +1,9 @@
 import { Loader2 } from 'lucide-react'
 import TabSelector from '../shared/TabSelector'
 import Layer1ResultsTable from '../shared/Layer1ResultsTable'
-import type { Layer1Result } from '../../types'
+import type { Layer1Result, StatementType } from '../../types'
 
-type StmtType = 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
-
-const LABEL_FOR: Record<StmtType, string> = {
+const LABEL_FOR: Record<StatementType, string> = {
   income_statement: 'Income Statement',
   balance_sheet: 'Balance Sheet',
   cash_flow_statement: 'Cash Flow Statement',
@@ -13,24 +11,24 @@ const LABEL_FOR: Record<StmtType, string> = {
 
 const STMT_TAB_NAMES = ['Income Statement', 'Balance Sheet', 'Cash Flow Statement'] as const
 
-const TAB_COLORS: Record<StmtType, string> = {
+const TAB_COLORS: Record<StatementType, string> = {
   income_statement: 'bg-blue-50 text-blue-700 border border-blue-200',
   balance_sheet: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
   cash_flow_statement: 'bg-purple-50 text-purple-700 border border-purple-200',
 }
 
-function tabNameToStmtType(tab: string): StmtType {
+function tabNameToStatementType(tab: string): StatementType {
   if (tab === 'Income Statement') return 'income_statement'
   if (tab === 'Balance Sheet') return 'balance_sheet'
   return 'cash_flow_statement'
 }
 
 interface PdfExtractionPanelProps {
-  pdfActiveTab: StmtType
-  pdfPageAssignments: Record<number, StmtType>
+  pdfActiveTab: StatementType
+  pdfPageAssignments: Record<number, StatementType>
   pdfExtracting: Record<string, boolean>
   layer1Results: Record<string, Layer1Result>
-  onSetActiveTab: (tab: StmtType) => void
+  onSetActiveTab: (tab: StatementType) => void
   onRunAll: () => void
 }
 
@@ -45,7 +43,7 @@ export default function PdfExtractionPanel({
   const isRunning = Object.values(pdfExtracting).some(Boolean)
   const hasPages = Object.keys(pdfPageAssignments).length > 0
 
-  const extractedTabs = (Object.keys(LABEL_FOR) as StmtType[])
+  const extractedTabs = (Object.keys(LABEL_FOR) as StatementType[])
     .filter((t) => layer1Results[t])
     .map((t) => LABEL_FOR[t])
 
@@ -74,7 +72,7 @@ export default function PdfExtractionPanel({
       <TabSelector
         tabs={[...STMT_TAB_NAMES]}
         activeTab={LABEL_FOR[pdfActiveTab]}
-        onChange={(tab) => onSetActiveTab(tabNameToStmtType(tab))}
+        onChange={(tab) => onSetActiveTab(tabNameToStatementType(tab))}
         extractedTabs={extractedTabs}
         smallText
       />
