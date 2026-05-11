@@ -1,10 +1,5 @@
 import { Loader2 } from 'lucide-react'
-
-const STATEMENT_TYPES = [
-  { key: 'income_statement', label: 'Income Statement' },
-  { key: 'balance_sheet', label: 'Balance Sheet' },
-  { key: 'cash_flow_statement', label: 'Cash Flow Statement' },
-] as const
+import { ALL_STATEMENT_TYPES, STATEMENT_LABELS } from '../../utils/statementMeta'
 
 interface ExcelSheetAssignmentPanelProps {
   sheetNames: string[]
@@ -58,7 +53,7 @@ export default function ExcelSheetAssignmentPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {STATEMENT_TYPES.map(({ key, label }) => (
+        {ALL_STATEMENT_TYPES.map((key) => { const label = STATEMENT_LABELS[key]; return (
           <div key={key} className="border-b border-gray-200 px-[14px] py-3">
             <p
               className="text-muted-foreground uppercase mb-2"
@@ -101,7 +96,7 @@ export default function ExcelSheetAssignmentPanel({
               </div>
             )}
           </div>
-        ))}
+        ); })}
       </div>
     </div>
   )
