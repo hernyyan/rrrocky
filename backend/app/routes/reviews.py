@@ -10,7 +10,6 @@ from sqlalchemy import text
 
 from app.db.database import get_db
 from app.models.schemas import ContinuePreviousRequest
-from app.services.company_service import get_company_or_404
 from app.utils.json_utils import deserialize_dict, deserialize_list
 
 router = APIRouter()
@@ -23,7 +22,12 @@ def check_existing_review(
     db: Session = Depends(get_db),
 ):
     """Check if finalized data exists for this company+period."""
-    _, company_name, _ = get_company_or_404(company_id, db)
+    company = db.execute(
+        text("SELECT name FROM companies WHERE id = :id"),
+        {"id": company_id},
+    ).fetchone()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found.")
 
     row = db.execute(
         text("""
@@ -35,7 +39,7 @@ def check_existing_review(
             ORDER BY finalized_at DESC
             LIMIT 1
         """),
-        {"name": company_name, "period": reporting_period},
+        {"name": company[0], "period": reporting_period},
     ).fetchone()
 
     if row:
@@ -53,7 +57,12 @@ def continue_previous_review(
     db: Session = Depends(get_db),
 ):
     """Create a new review session pre-populated with the latest finalized data."""
-    _, company_name, _ = get_company_or_404(request.company_id, db)
+    company = db.execute(
+        text("SELECT name FROM companies WHERE id = :id"),
+        {"id": request.company_id},
+    ).fetchone()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found.")
 
     source = db.execute(
         text("""
@@ -65,7 +74,7 @@ def continue_previous_review(
             ORDER BY finalized_at DESC
             LIMIT 1
         """),
-        {"name": company_name, "period": request.reporting_period},
+        {"name": company[0], "period": request.reporting_period},
     ).fetchone()
 
     if not source:
@@ -82,7 +91,7 @@ def continue_previous_review(
         """),
         {
             "sid": new_session_id,
-            "name": company_name,
+            "name": company[0],
             "period": request.reporting_period,
             "l1": source[1],
             "l2": source[2],
