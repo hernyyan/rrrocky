@@ -6,18 +6,20 @@ from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import RecalculateRequest
 from app.services.recalculate_service import RECALC_FN
-from app.utils.statement_meta import validate_statement_type
+from app.utils.statement_meta import normalize_statement_type
 
 router = APIRouter()
 
 
 @router.post('/recalculate')
 def recalculate(request: RecalculateRequest):
-    try:
-        normalized = validate_statement_type(request.statement_type)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    fn = RECALC_FN[normalized]
+    normalized = normalize_statement_type(request.statement_type)
+    fn = RECALC_FN.get(normalized)
+    if fn is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown statement_type '{request.statement_type}'.",
+        )
     result = fn(
         values=request.values,
         ai_matched=request.values,  # use current values as ai_matched baseline
