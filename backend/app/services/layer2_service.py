@@ -21,6 +21,7 @@ from sqlalchemy import text as sa_text
 from app.services.claude_service import ClaudeService, get_claude_service
 from app.services.layer2_response_parser import parse_layer2_response
 from app.services.recalculate_service import RECALC_FN, CALCULATED_FIELDS
+from app.utils.text_utils import count_context_rules
 
 # Built from RECALC_FN so adding a new statement type requires one edit only.
 # prompt_key follows the convention "layer2_{stmt_key}".
@@ -159,10 +160,7 @@ class Layer2Service:
             content = row[0]
 
             # Only return if file has actual rules (bullet points), not just the header
-            lines = content.split("\n")
-            has_rules = any(l.strip().startswith("- ") for l in lines)
-
-            return content if has_rules else ""
+            return content if count_context_rules(content) > 0 else ""
         except Exception:
             return ""
 

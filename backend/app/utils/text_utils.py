@@ -30,3 +30,12 @@ def markdown_body_word_count(content: str) -> int:
 def context_exceeds_limit(text: str) -> bool:
     """Return True if the company context file body exceeds the word limit."""
     return markdown_body_word_count(text) > COMPANY_CONTEXT_WORD_LIMIT
+
+
+def count_context_rules(context: str) -> int:
+    """
+    Count bullet-point rule lines in a company context string.
+    A rule line is any line whose stripped content starts with "- ".
+    Returns 0 for empty or header-only content.
+    """
+    return sum(1 for line in context.split("\n") if line.strip().startswith("- "))
