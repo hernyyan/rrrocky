@@ -2,12 +2,10 @@ import { useEffect, useState } from 'react'
 import { useWizardState } from '../../hooks/useWizardState'
 import LoadingSpinner from '../shared/LoadingSpinner'
 import { finalizeOutput, getTemplate, getExport } from '../../api/client'
-import { formatDollar } from '../../utils/formatters'
+import { formatFieldValue, formatDollar } from '../../utils/formatters'
 import { IS_TEMPLATE_FIELDS, BS_TEMPLATE_FIELDS } from '../../mocks/mockData'
-import { isIndented } from '../../utils/templateStyling'
+import { BOLD_FIELDS, ITALIC_FIELDS, isIndented } from '../../utils/templateStyling'
 import { assembleValues } from '../../utils/assembleValues'
-import { getFailingFieldNames, buildFinalizeRows } from '../../utils/finalizeRows'
-import type { FinalizeRow } from '../../utils/finalizeRows'
 import type { TemplateResponse, TemplateSection } from '../../types'
 import {
   ArrowLeft,
@@ -34,7 +32,21 @@ function formatDateTime(iso: string): string {
   })
 }
 
-type TableRow = FinalizeRow
+interface TableRow {
+  label: string
+  classifiedValue: string | null
+  finalValue: string | null
+  rawFinalValue?: number | null
+  isStatementHeader?: boolean
+  isHeader?: boolean
+  isBalanceCheck?: boolean
+  corrected?: boolean
+  flagged?: boolean
+  validationFail?: boolean
+  isBold?: boolean
+  isIndented?: boolean
+  isItalic?: boolean
+}
 
 export default function Step3Finalize() {
   const {
@@ -75,8 +87,22 @@ export default function Step3Finalize() {
     ...(bsLayer2?.flaggedFields ?? []),
     ...(cfsLayer2?.flaggedFields ?? []),
   ])
-  const isFailingFields = getFailingFieldNames(isLayer2)
-  const bsFailingFields = getFailingFieldNames(bsLayer2)
+  const allValidationFails = new Set([
+    ...Object.entries(isLayer2?.validation ?? {})
+      .filter(([, v]) => v.status === 'FAIL')
+      .flatMap(([k]) =>
+        Object.entries(isLayer2?.fieldValidations ?? {})
+          .filter(([, checks]) => checks.includes(k))
+          .map(([f]) => f)
+      ),
+    ...Object.entries(bsLayer2?.validation ?? {})
+      .filter(([, v]) => v.status === 'FAIL')
+      .flatMap(([k]) =>
+        Object.entries(bsLayer2?.fieldValidations ?? {})
+          .filter(([, checks]) => checks.includes(k))
+          .map(([f]) => f)
+      ),
+  ])
 
   // Summary stats
   const totalPopulated = [
@@ -95,19 +121,90 @@ export default function Step3Finalize() {
   const balanceDiff = totalAssets - totalLE
   const isBalanced = Math.abs(balanceDiff) < 0.01
 
-  const rows = buildFinalizeRows({
-    isSections,
-    bsSections,
-    cfsSections,
-    finalValues,
-    isLayer2,
-    bsLayer2,
-    cfsLayer2,
-    correctedFieldNames,
-    allFlaggedFields,
-    isFailingFields,
-    bsFailingFields,
-  })
+  function buildRows(): TableRow[] {
+    const rows: TableRow[] = []
+
+    rows.push({ label: 'Income Statement', classifiedValue: null, finalValue: null, isStatementHeader: true })
+    for (const section of isSections) {
+      if (section.header) rows.push({ label: section.header, classifiedValue: null, finalValue: null, isHeader: true })
+      for (const field of section.fields) {
+        const rawFinalValue = finalValues.income_statement[field] ?? null
+        const l2Value = isLayer2?.values[field] ?? null
+        const corrected = correctedFieldNames.has(field)
+        const flagged = allFlaggedFields.has(field) && !corrected
+        const validationFail = allValidationFails.has(field) && !corrected
+        rows.push({
+          label: field,
+          classifiedValue: l2Value !== null ? formatFieldValue(field, l2Value) : null,
+          finalValue: rawFinalValue !== null ? formatFieldValue(field, rawFinalValue) : null,
+          rawFinalValue,
+          corrected,
+          flagged,
+          validationFail,
+          isBold: BOLD_FIELDS.has(field),
+          isIndented: isIndented(field),
+          isItalic: ITALIC_FIELDS.has(field),
+        })
+      }
+    }
+
+    rows.push({ label: 'Balance Sheet', classifiedValue: null, finalValue: null, isStatementHeader: true })
+    for (const section of bsSections) {
+      if (section.header) rows.push({ label: section.header, classifiedValue: null, finalValue: null, isHeader: true })
+      for (const field of section.fields) {
+        if (field === 'Check') {
+          rows.push({ label: 'Check', classifiedValue: null, finalValue: null, isBalanceCheck: true })
+          continue
+        }
+        const rawFinalValue = finalValues.balance_sheet[field] ?? null
+        const l2Value = bsLayer2?.values[field] ?? null
+        const corrected = correctedFieldNames.has(field)
+        const flagged = allFlaggedFields.has(field) && !corrected
+        const validationFail = allValidationFails.has(field) && !corrected
+        rows.push({
+          label: field,
+          classifiedValue: l2Value !== null ? formatFieldValue(field, l2Value) : null,
+          finalValue: rawFinalValue !== null ? formatFieldValue(field, rawFinalValue) : null,
+          rawFinalValue,
+          corrected,
+          flagged,
+          validationFail,
+          isBold: BOLD_FIELDS.has(field),
+          isIndented: isIndented(field),
+          isItalic: ITALIC_FIELDS.has(field),
+        })
+      }
+    }
+
+    if (cfsSections.length > 0) {
+      rows.push({ label: 'Cash Flow Statement', classifiedValue: null, finalValue: null, isStatementHeader: true })
+      for (const section of cfsSections) {
+        if (section.header) rows.push({ label: section.header, classifiedValue: null, finalValue: null, isHeader: true })
+        for (const field of section.fields) {
+          const rawFinalValue = finalValues.cash_flow_statement[field] ?? null
+          const l2Value = cfsLayer2?.values[field] ?? null
+          const corrected = correctedFieldNames.has(field)
+          const flagged = allFlaggedFields.has(field) && !corrected
+          rows.push({
+            label: field,
+            classifiedValue: l2Value !== null ? formatFieldValue(field, l2Value) : null,
+            finalValue: rawFinalValue !== null ? formatFieldValue(field, rawFinalValue) : null,
+            rawFinalValue,
+            corrected,
+            flagged,
+            validationFail: false,
+            isBold: BOLD_FIELDS.has(field),
+            isIndented: isIndented(field),
+            isItalic: ITALIC_FIELDS.has(field),
+          })
+        }
+      }
+    }
+
+    return rows
+  }
+
+  const rows = buildRows()
 
   async function handleExportCsv() {
     if (!sessionId) return
