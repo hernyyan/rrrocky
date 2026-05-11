@@ -68,7 +68,7 @@ def continue_from_previous(
     finalized review for the given company+period.
 
     Raises HTTPException 404 if no finalized review exists.
-    Does NOT commit — caller owns the transaction boundary.
+    Commits the new session row and returns its full data.
     """
     source = db.execute(
         text("""
@@ -106,6 +106,7 @@ def continue_from_previous(
             "corrections": source[3],
         },
     )
+    db.commit()
 
     return {
         "session_id": new_session_id,
@@ -223,7 +224,7 @@ def export_review(session_id: str, db: Session) -> tuple[bytes, str]:
 def delete_review(session_id: str, db: Session) -> None:
     """
     Delete a review by session_id.
-    Raises HTTPException 404 if not found. Does NOT commit — caller owns the transaction boundary.
+    Raises HTTPException 404 if not found. Commits on success.
     """
     row = db.execute(
         text("SELECT id FROM reviews WHERE session_id = :sid"),
@@ -236,6 +237,7 @@ def delete_review(session_id: str, db: Session) -> None:
         text("DELETE FROM reviews WHERE session_id = :sid"),
         {"sid": session_id},
     )
+    db.commit()
 
 
 def get_export_data(session_id: str, db: Session) -> dict[str, Any]:
