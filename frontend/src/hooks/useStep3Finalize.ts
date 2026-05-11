@@ -2,9 +2,9 @@
  * useStep3Finalize — owns all state and logic for the Step 3 finalize workflow.
  *
  * Hides:
- *   - template state + fetch useEffect (getTemplate)
+ *   - template + section resolution (delegated to useTemplate)
  *   - saving / exporting / finalized / finalizedAt / status state
- *   - section fallback resolution (isSections / bsSections / cfsSections)
+ *   - finalValues assembly (assembleValues)
  *   - finalValues assembly (assembleValues)
  *   - correctedFieldNames Set, allFlaggedFields Set
  *   - isFailingFields / bsFailingFields (getFailingFieldNames)
@@ -14,13 +14,13 @@
  *   - handleFinalize — persists via finalizeOutput, sets finalized/finalizedAt
  *   - handleExportCsv — calls getExport, triggers browser download
  */
-import { useEffect, useState } from 'react'
-import { finalizeOutput, getExport, getTemplate } from '../api/client'
-import { IS_TEMPLATE_FIELDS, BS_TEMPLATE_FIELDS } from '../utils/templateFields'
+import { useState } from 'react'
+import { finalizeOutput, getExport } from '../api/client'
 import { assembleValues } from '../utils/assembleValues'
 import { getFailingFieldNames, buildFinalizeRows } from '../utils/finalizeRows'
+import { useTemplate } from './useTemplate'
 import type { FinalizeRow } from '../utils/finalizeRows'
-import type { Correction, Layer2Result, TemplateResponse, TemplateSection, StatusMessage } from '../types'
+import type { Correction, Layer2Result, StatusMessage } from '../types'
 
 interface UseStep3FinalizeOptions {
   sessionId: string | null
@@ -58,21 +58,12 @@ export function useStep3Finalize({
   const [status, setStatus] = useState<StatusMessage>(null)
   const [finalized, setFinalized] = useState(false)
   const [finalizedAt, setFinalizedAt] = useState<string | null>(null)
-  const [template, setTemplate] = useState<TemplateResponse | null>(null)
 
-  useEffect(() => {
-    getTemplate().then(setTemplate).catch(() => {})
-  }, [])
+  const { isSections, bsSections, cfsSections } = useTemplate()
 
   const isLayer2 = layer2Results['income_statement'] ?? null
   const bsLayer2 = layer2Results['balance_sheet'] ?? null
   const cfsLayer2 = layer2Results['cash_flow_statement'] ?? null
-
-  const fallbackIs: TemplateSection[] = [{ header: null, fields: IS_TEMPLATE_FIELDS }]
-  const fallbackBs: TemplateSection[] = [{ header: null, fields: BS_TEMPLATE_FIELDS }]
-  const isSections = template?.income_statement.sections ?? fallbackIs
-  const bsSections = template?.balance_sheet.sections ?? fallbackBs
-  const cfsSections = template?.cash_flow_statement?.sections ?? []
 
   const finalValues = assembleValues(layer2Results, corrections, isSections, cfsSections)
   const correctedFieldNames = new Set(corrections.map((c) => c.fieldName))
