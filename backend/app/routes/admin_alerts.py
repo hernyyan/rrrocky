@@ -16,7 +16,8 @@ from sqlalchemy import text
 
 from app.db.database import get_db
 from app.models.schemas import AlertStatusUpdateRequest
-from app.routes.admin_utils import GENERAL_FIXES_PATH, read_jsonl, scan_duplicate_companies
+from app.routes.admin_utils import GENERAL_FIXES_PATH, read_jsonl
+from app.services.duplicate_detection_service import scan_duplicate_companies
 from app.utils.json_utils import deserialize_list
 
 router = APIRouter(prefix="/admin")
