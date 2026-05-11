@@ -1,5 +1,9 @@
 import { createContext, useContext, useState, ReactNode, createElement } from 'react'
 import type { WizardState, Layer1Result, Layer2Result, Correction, StatementType } from '../types'
+import {
+  MOCK_LAYER2_INCOME_STATEMENT,
+  MOCK_LAYER2_BALANCE_SHEET,
+} from '../mocks/mockData'
 
 interface WizardContextType extends WizardState {
   setCompanyName: (name: string) => void
@@ -27,6 +31,7 @@ interface WizardContextType extends WizardState {
   setPdfUrl: (url: string | null) => void
   setPdfPageAssignments: (assignments: Record<number, StatementType>) => void
   resetWizard: () => void
+  loadMockStep2: () => void
 }
 
 const defaultState: WizardState = {
@@ -205,6 +210,34 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     setState(defaultState)
   }
 
+  // Load mock data for Step 2/3 development — bypasses Step 1 real upload flow
+  function loadMockStep2() {
+    setState({
+      companyName: 'Business Enterprise Company',
+      companyId: null,
+      reportingPeriod: 'February 2026',
+      sessionId: 'mock-session-001',
+      uploadFileType: null,
+      uploadedFile: null,
+      sheetNames: ['Income Statement', 'Balance Sheet'],
+      workbookUrl: null,
+      layer1Results: {},
+      useCompanyContext: true,
+      pdfPageCount: 0,
+      pdfUrl: null,
+      pdfPageAssignments: {},
+      layer2Results: {
+        income_statement: MOCK_LAYER2_INCOME_STATEMENT,
+        balance_sheet: MOCK_LAYER2_BALANCE_SHEET,
+      },
+      corrections: [],
+      currentStep: 2,
+      activeSheetTab: 'Income Statement',
+      selectedCell: null,
+      sidePanelOpen: false,
+    })
+  }
+
   const value: WizardContextType = {
     ...state,
     setCompanyName,
@@ -232,6 +265,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     setPdfUrl,
     setPdfPageAssignments,
     resetWizard,
+    loadMockStep2,
   }
 
   return createElement(WizardContext.Provider, { value }, children)
