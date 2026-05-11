@@ -149,6 +149,22 @@ class TemplateService:
     def get_field_order(self, statement_type: str) -> List[str]:
         return self.template.get(statement_type, {}).get("allFields", [])
 
+    def assemble_final_output(self, final_values: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """
+        Order final_values by the canonical template field sequence and key by
+        statement label (e.g. "Income Statement") instead of statement key.
+
+        final_values: maps stmt_key ("income_statement", …) → {field: value}
+        Returns: maps stmt_label ("Income Statement", …) → {field: value},
+                 fields ordered per template, unknowns omitted.
+        """
+        result: Dict[str, Dict[str, Any]] = {}
+        for stmt_key, stmt_label in STATEMENT_TYPES:
+            raw = final_values.get(stmt_key, {})
+            fields = self.get_field_order(stmt_key)
+            result[stmt_label] = {f: raw[f] for f in fields if f in raw}
+        return result
+
     def build_export_csv(self, final_output: dict) -> str:
         """
         Build a CSV string from final_output, ordered by the canonical template

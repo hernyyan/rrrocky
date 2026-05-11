@@ -11,7 +11,6 @@ from sqlalchemy import text
 from app.models.schemas import FinalizeRequest, FinalizeResponse
 from app.db.database import get_db
 from app.services.template_service import get_template_service
-from app.utils.statement_meta import STATEMENT_TYPES
 
 router = APIRouter()
 
@@ -24,13 +23,8 @@ def finalize_output(request: FinalizeRequest, db: Session = Depends(get_db)):
     """
     now = datetime.now(timezone.utc).isoformat()
 
-    # Order output fields by the canonical template sequence
-    template_svc = get_template_service()
-    final_output = {}
-    for key, label in STATEMENT_TYPES:
-        raw = request.finalValues.get(key, {})
-        fields = template_svc.get_field_order(key)
-        final_output[label] = {f: raw.get(f) for f in fields if f in raw}
+    # Order output fields by the canonical template sequence (label-keyed)
+    final_output = get_template_service().assemble_final_output(request.finalValues)
 
     corrections_json = json.dumps([c.model_dump() for c in request.corrections])
     final_output_json = json.dumps(final_output)
