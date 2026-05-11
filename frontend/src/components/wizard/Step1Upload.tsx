@@ -15,18 +15,16 @@ import UploadToolbar from './UploadToolbar'
 import TemplateReview from './TemplateReview'
 import TemplateDeltaReview from './TemplateDeltaReview'
 import {
-  uploadFile,
   getCompanyContextStatus,
   continuePreviousReview,
   appendToCompanyDataset,
 } from '../../api/client'
 import { API_BASE } from '../../api/client'
 import type { Company, CompanyContextStatus } from '../../types'
+import { useFileUpload } from '../../hooks/useFileUpload'
 import {
   Upload,
-  Loader2,
   FileSpreadsheet,
-  X,
 } from 'lucide-react'
 import approveSfx from '../../assets/approve.mp3'
 
@@ -78,8 +76,6 @@ export default function Step1Upload() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const splitContainerRef = useRef<HTMLDivElement>(null)
 
-  const [uploading, setUploading] = useState(false)
-  const [isDragOver, setIsDragOver] = useState(false)
   const [status, setStatus] = useState<StatusMessage>(null)
   const [contextStatus, setContextStatus] = useState<CompanyContextStatus | null>(null)
   const [contextLoading, setContextLoading] = useState(false)
@@ -139,6 +135,36 @@ export default function Step1Upload() {
     setStatus,
     setDuplicateCheck,
     setPendingExtraction,
+  })
+
+  const {
+    uploading,
+    isDragOver,
+    handleFileChange,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    handleReupload,
+    handleClearUpload,
+  } = useFileUpload({
+    companyName,
+    companyId,
+    reportingPeriod,
+    fileInputRef,
+    setUploadedFile,
+    setSessionId,
+    setUploadFileType,
+    setLayer1Results,
+    setSheetNames,
+    setWorkbookUrl,
+    setPdfPageCount,
+    setPdfUrl,
+    setPdfPageAssignments,
+    resetExcelExtraction,
+    resetPdfExtraction,
+    setStatus,
+    setContextStatus,
+    setContextLoading,
   })
 
   const hasUpload = uploadFileType === 'excel'
@@ -248,128 +274,6 @@ export default function Step1Upload() {
 
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
-  }
-
-  // ── File upload ─────────────────────────────────────────────────────────
-
-  async function handleFileUpload(file: File) {
-    const isPdf = file.name.toLowerCase().endsWith('.pdf')
-
-    setUploading(true)
-    setStatus(null)
-    try {
-      const response = await uploadFile(file, companyName, reportingPeriod)
-      setUploadedFile(file)
-      setSessionId(response.sessionId)
-      setUploadFileType(response.fileType)
-      setLayer1Results({})
-
-      if (response.fileType === 'pdf') {
-        setPdfPageCount(response.pdfPageCount ?? 0)
-        setPdfUrl(response.pdfUrl ?? null)
-        setSheetNames([])
-        setWorkbookUrl(null)
-        setPdfPageAssignments({})
-      } else {
-        setSheetNames(response.sheetNames)
-        setWorkbookUrl(response.workbookUrl)
-        setPdfPageCount(0)
-        setPdfUrl(null)
-        setPdfPageAssignments({})
-        resetExcelExtraction()
-      }
-
-      setStatus({
-        type: 'success',
-        message: isPdf
-          ? `Uploaded "${file.name}" — ${response.pdfPageCount} page(s) found. Select pages for each statement.`
-          : `Uploaded "${file.name}" — ${response.sheetNames.length} sheet(s) found.`,
-      })
-
-      if (companyId) {
-        setContextLoading(true)
-        getCompanyContextStatus(companyId)
-          .then(setContextStatus)
-          .catch(() => setContextStatus(null))
-          .finally(() => setContextLoading(false))
-      }
-    } catch (err) {
-      setStatus({
-        type: 'error',
-        message:
-          err instanceof Error ? err.message : 'Upload failed. Check that the backend is running.',
-      })
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    await handleFileUpload(file)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragOver(true)
-  }
-
-  function handleDragLeave(e: React.DragEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setIsDragOver(false)
-    }
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragOver(false)
-    const file = e.dataTransfer.files?.[0]
-    if (!file) return
-    const name = file.name.toLowerCase()
-    if (!name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.pdf')) {
-      setStatus({ type: 'error', message: 'Only Excel (.xlsx, .xls) and PDF files are supported.' })
-      return
-    }
-    handleFileUpload(file)
-  }
-
-  function handleReupload() {
-    setUploadedFile(null)
-    setSessionId(null)
-    setSheetNames([])
-    setWorkbookUrl(null)
-    setLayer1Results({})
-    resetExcelExtraction()
-    resetPdfExtraction()
-    setStatus(null)
-    setContextStatus(null)
-    setUploadFileType(null)
-    setPdfPageCount(0)
-    setPdfUrl(null)
-    setPdfPageAssignments({})
-    setTimeout(() => fileInputRef.current?.click(), 0)
-  }
-
-  function handleClearUpload() {
-    setUploadedFile(null)
-    setSessionId(null)
-    setSheetNames([])
-    setWorkbookUrl(null)
-    setLayer1Results({})
-    resetExcelExtraction()
-    resetPdfExtraction()
-    setStatus(null)
-    setContextStatus(null)
-    setUploadFileType(null)
-    setPdfPageCount(0)
-    setPdfUrl(null)
-    setPdfPageAssignments({})
   }
 
   // ── PDF page assignment (stays in parent — writes wizard state) ─────────
