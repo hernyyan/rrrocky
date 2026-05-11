@@ -6,8 +6,8 @@
  *   mergeLayer1Result, setStatus, setDuplicateCheck, setPendingExtraction
  */
 import { useState } from 'react'
-import { runLayer1, saveLayer1Template } from '../api/client'
-import type { Layer1Result, Layer1Template, Layer1TemplateRow, TemplateCheckResult, StatusMessage, StatementType } from '../types'
+import { runLayer1, saveLayer1Template, checkExistingReview } from '../api/client'
+import type { Layer1Result, Layer1Template, Layer1TemplateRow, TemplateCheckResult, StatusMessage, DuplicateCheck, PendingExtraction, StatementType } from '../types'
 import { ALL_STATEMENT_TYPES, createStmtRecord } from '../utils/statementMeta'
 
 export type ExtractionStatus = 'idle' | 'running' | 'done' | 'error'
@@ -28,7 +28,8 @@ export interface ExcelExtractionDeps {
   companyId: number | null
   mergeLayer1Result: (type: string, result: Layer1Result) => void
   setStatus: (s: StatusMessage) => void
-  checkBeforeRun: (pendingType: 'pdf' | 'global') => Promise<boolean>
+  setDuplicateCheck: (v: DuplicateCheck) => void
+  setPendingExtraction: (v: PendingExtraction) => void
 }
 
 const EMPTY_ASSIGNMENTS: Assignments = createStmtRecord('')
@@ -40,7 +41,8 @@ export function useExcelExtraction({
   companyId,
   mergeLayer1Result,
   setStatus,
-  checkBeforeRun,
+  setDuplicateCheck,
+  setPendingExtraction,
 }: ExcelExtractionDeps) {
   const [assignments, setAssignments] = useState<Assignments>(EMPTY_ASSIGNMENTS)
   const [extractionStatus, setExtractionStatus] = useState<ExtractionStatus>('idle')
@@ -152,7 +154,24 @@ export function useExcelExtraction({
 
   async function handleRunExtraction() {
     if (!sessionId || !reportingPeriod.trim() || !companyName.trim()) return
-    if (await checkBeforeRun('global')) return
+
+    if (companyId) {
+      try {
+        const existing = await checkExistingReview(companyId, reportingPeriod)
+        if (existing.exists) {
+          setDuplicateCheck({
+            exists: true,
+            sessionId: existing.session_id!,
+            finalizedAt: existing.finalized_at ?? null,
+          })
+          setPendingExtraction({ type: 'global' })
+          return
+        }
+      } catch {
+        // proceed on check failure
+      }
+    }
+
     runExtractionInner()
   }
 
