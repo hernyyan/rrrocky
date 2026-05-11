@@ -9,16 +9,6 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString()
 
-type Assignment = 'income_statement' | 'balance_sheet' | 'cash_flow_statement' | undefined
-
-// Central mapping for statement-type → color. Single place to update if colors change.
-function assignmentClasses(a: Assignment) {
-  if (a === 'income_statement')  return { border: 'border-blue-500',    bg: 'bg-blue-500 border-blue-500 hover:ring-blue-300',     ring: 'ring-2 ring-blue-400',    badge: 'bg-blue-500',    label: 'IS' }
-  if (a === 'balance_sheet')     return { border: 'border-emerald-500', bg: 'bg-emerald-500 border-emerald-500 hover:ring-emerald-300', ring: 'ring-2 ring-emerald-400', badge: 'bg-emerald-500', label: 'BS' }
-  if (a === 'cash_flow_statement') return { border: 'border-purple-500', bg: 'bg-purple-500 border-purple-500 hover:ring-purple-300',  ring: 'ring-2 ring-purple-400',  badge: 'bg-purple-500',  label: 'CFS' }
-  return { border: 'border-gray-200', bg: 'bg-white border-gray-300 hover:ring-gray-300', ring: '', badge: '', label: '' }
-}
-
 interface PdfPageViewerProps {
   pdfUrl: string | null
   pageCount: number
@@ -86,10 +76,17 @@ export default function PdfPageViewer({
             }
           >
             {pages.map((pageNum) => {
-              const assignment = pageAssignments[pageNum] as Assignment
+              const assignment = pageAssignments[pageNum]
               const isActive = currentPage === pageNum
-              const ac = assignmentClasses(assignment)
-              const borderClass = assignment ? ac.border : isActive ? 'border-gray-400' : 'border-gray-200'
+              const borderClass = assignment === 'income_statement'
+                ? 'border-blue-500'
+                : assignment === 'balance_sheet'
+                  ? 'border-emerald-500'
+                  : assignment === 'cash_flow_statement'
+                    ? 'border-purple-500'
+                    : isActive
+                      ? 'border-gray-400'
+                      : 'border-gray-200'
 
               return (
                 <div
@@ -113,7 +110,15 @@ export default function PdfPageViewer({
                     />
                     {/* Checkbox — top-right, click-only selection */}
                     <div
-                      className={`absolute top-1.5 right-1.5 z-10 w-4 h-4 rounded-sm border flex items-center justify-center transition-all hover:ring-2 hover:ring-offset-1 ${ac.bg}`}
+                      className={`absolute top-1.5 right-1.5 z-10 w-4 h-4 rounded-sm border flex items-center justify-center transition-all hover:ring-2 hover:ring-offset-1 ${
+                        assignment === 'income_statement'
+                          ? 'bg-blue-500 border-blue-500 hover:ring-blue-300'
+                          : assignment === 'balance_sheet'
+                            ? 'bg-emerald-500 border-emerald-500 hover:ring-emerald-300'
+                            : assignment === 'cash_flow_statement'
+                              ? 'bg-purple-500 border-purple-500 hover:ring-purple-300'
+                              : 'bg-white border-gray-300 hover:ring-gray-300'
+                      }`}
                       onClick={(e) => { e.stopPropagation(); onPageClick(pageNum) }}
                     >
                       {assignment && (
@@ -149,14 +154,21 @@ export default function PdfPageViewer({
             }
           >
             {pages.map((pageNum) => {
-              const assignment = pageAssignments[pageNum] as Assignment
-              const ac = assignmentClasses(assignment)
+              const assignment = pageAssignments[pageNum]
               return (
                 <div
                   key={pageNum}
                   data-page={pageNum}
                   ref={(el) => { pageRefs.current[pageNum] = el }}
-                  className={`relative shadow-md bg-white ${ac.ring}`}
+                  className={`relative shadow-md bg-white ${
+                    assignment === 'income_statement'
+                      ? 'ring-2 ring-blue-400'
+                      : assignment === 'balance_sheet'
+                        ? 'ring-2 ring-emerald-400'
+                        : assignment === 'cash_flow_statement'
+                          ? 'ring-2 ring-purple-400'
+                          : ''
+                  }`}
                 >
                   <Page
                     pageNumber={pageNum}
@@ -166,7 +178,15 @@ export default function PdfPageViewer({
                   />
                   {/* Checkbox — top-right, click-only selection */}
                   <div
-                    className={`absolute top-2 right-2 z-10 w-4 h-4 rounded-sm border flex items-center justify-center transition-all cursor-pointer hover:ring-2 hover:ring-offset-1 ${ac.bg}`}
+                    className={`absolute top-2 right-2 z-10 w-4 h-4 rounded-sm border flex items-center justify-center transition-all cursor-pointer hover:ring-2 hover:ring-offset-1 ${
+                      assignment === 'income_statement'
+                        ? 'bg-blue-500 border-blue-500 hover:ring-blue-300'
+                        : assignment === 'balance_sheet'
+                          ? 'bg-emerald-500 border-emerald-500 hover:ring-emerald-300'
+                          : assignment === 'cash_flow_statement'
+                            ? 'bg-purple-500 border-purple-500 hover:ring-purple-300'
+                            : 'bg-white border-gray-300 hover:ring-gray-300'
+                    }`}
                     onClick={(e) => { e.stopPropagation(); onPageClick(pageNum) }}
                   >
                     {assignment && (
@@ -179,10 +199,16 @@ export default function PdfPageViewer({
                   <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
                     {assignment && (
                       <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] text-white ${ac.badge}`}
+                        className={`px-1.5 py-0.5 rounded text-[10px] text-white ${
+                          assignment === 'income_statement' ? 'bg-blue-500'
+                            : assignment === 'balance_sheet' ? 'bg-emerald-500'
+                            : 'bg-purple-500'
+                        }`}
                         style={{ fontWeight: 600 }}
                       >
-                        {ac.label}
+                        {assignment === 'income_statement' ? 'IS'
+                          : assignment === 'balance_sheet' ? 'BS'
+                          : 'CFS'}
                       </span>
                     )}
                     <span className="px-1.5 py-0.5 rounded bg-black/50 text-white text-[10px]">
