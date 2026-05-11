@@ -4,6 +4,7 @@ export type StatusMessage = { type: 'success' | 'error' | 'info'; message: strin
 export type StatementType = 'income_statement' | 'balance_sheet' | 'cash_flow_statement'
 export type DuplicateCheck = { exists: boolean; sessionId: string; finalizedAt: string | null } | null
 export type PendingExtraction = { type: 'pdf' } | { type: 'global' } | null
+export type CorrectionTag = 'one_off_error' | 'company_specific' | 'general_fix'
 
 export interface WizardState {
   // Metadata
@@ -117,7 +118,7 @@ export interface Correction {
   originalValue: number
   correctedValue: number
   reasoning?: string
-  tag: 'one_off_error' | 'company_specific' | 'general_fix'
+  tag: CorrectionTag
   timestamp: string
 }
 
@@ -172,7 +173,7 @@ export interface CorrectionRequest {
   originalValue: number
   correctedValue: number
   reasoning?: string
-  tag?: 'one_off_error' | 'company_specific' | 'general_fix'
+  tag?: CorrectionTag
 }
 
 export interface FinalizeRequest {
@@ -253,7 +254,7 @@ export interface CorrectionProcessItem {
   layer2_validation: string | null
   corrected_value: number
   analyst_reasoning?: string
-  tag: 'one_off_error' | 'company_specific' | 'general_fix'
+  tag: CorrectionTag
 }
 
 export interface CorrectionProcessRequest {
